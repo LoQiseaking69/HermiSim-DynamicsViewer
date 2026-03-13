@@ -13,6 +13,7 @@ from physics_engine.engine import PhysicsEngine
 from physics_engine.sensor import Sensor
 from physics_engine.simulation import Simulation
 import logging
+from logging.handlers import RotatingFileHandler
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -29,8 +30,19 @@ class MainWindow(QMainWindow):
         self.add_tabs()
         self.create_menu()
 
-        logging.basicConfig(level=logging.INFO)
+        # Configure logging
+        log_file = 'simulation.log'
+        file_handler = RotatingFileHandler(log_file, maxBytes=1024*1024*5, backupCount=5) # 5 MB per file, 5 backup files
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        
+        logging.basicConfig(level=logging.INFO, handlers=[file_handler, console_handler])
         self.logger = logging.getLogger(__name__)
+        self.logger.info("Application started.")
 
     def add_tabs(self):
         self.render_tab = RenderTab(self.simulation)

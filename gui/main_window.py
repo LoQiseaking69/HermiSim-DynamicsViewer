@@ -6,6 +6,7 @@ from gui.tabs.sensor_tab import SensorTab
 from gui.file_loader import FileLoader
 from physics_engine.simulation import Simulation
 import logging
+from PyQt5.QtCore import QTimer
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -24,6 +25,10 @@ class MainWindow(QMainWindow):
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.simulation.step)
+        self.timer.start(int(1000 / 60)) # 60 FPS
 
     def add_tabs(self):
         self.render_tab = RenderTab(self.simulation)
