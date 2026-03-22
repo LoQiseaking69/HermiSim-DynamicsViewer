@@ -1,80 +1,124 @@
-"""HermiSim — Dynamics Viewer entry point."""
-
-from __future__ import annotations
-
-import logging
-import os
 import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget, QAction, QFileDialog, QMessageBox
+from gui.styles import apply_styles
+from gui.tabs.render_tab import RenderTab
+from gui.tabs.simulation_tab import SimulationTab
+from gui.tabs.log_tab import LogTab
+from gui.tabs.sensor_tab import SensorTab
+from gui.simulation_controls import SimulationControls
+from gui.object_renderer import ObjectRenderer
+from gui.file_loader import FileLoader
+from gui.sensor_data_viewer import SensorDataViewer
+from physics_engine.engine import PhysicsEngine
+from physics_engine.sensor import Sensor
+from physics_engine.simulation import Simulation
+import logging
+from logging.handlers import RotatingFileHandler
 
-# Prevent MuJoCo from auto-loading bundled plugins that may fail on some
-# Windows configurations (DLL init errors with MS-Store Python).  We redirect
-# the plugin directory to a temp folder *before* the package is first imported
-# so that ``_load_all_bundled_plugins`` finds nothing to load.
-_mujoco_pkg_dir = None
-try:
-    import importlib.util as _ilu
-    _spec = _ilu.find_spec("mujoco")
-    if _spec and _spec.submodule_search_locations:
-        _mujoco_pkg_dir = _spec.submodule_search_locations[0]
-except Exception:
-    pass
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Robotics Simulation Suite")
+        self.setGeometry(100, 100, 1200, 800)
 
-if _mujoco_pkg_dir:
-    _real_plugin_dir = os.path.join(_mujoco_pkg_dir, "plugin")
-    _temp_plugin_dir = os.path.join(_mujoco_pkg_dir, "_plugin_disabled")
-    if os.path.isdir(_real_plugin_dir) and not os.path.isdir(_temp_plugin_dir):
-        try:
-            os.rename(_real_plugin_dir, _temp_plugin_dir)
-        except OSError:
-            pass
+        self.simulation = Simulation()
+        self.file_loader = FileLoader(self.simulation)
 
-import mujoco  # noqa: E402  — safe now (no plugins to load)
+        self.tab_widget = QTabWidget()
+        self.setCentralWidget(self.tab_widget)
 
-# Restore the plugin directory after import so files stay intact
-if _mujoco_pkg_dir:
-    if os.path.isdir(_temp_plugin_dir) and not os.path.isdir(_real_plugin_dir):
-        try:
-            os.rename(_temp_plugin_dir, _real_plugin_dir)
-        except OSError:
-            pass
+        self.add_tabs()
+        self.create_menu()
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+        # Configure logging
+        log_file = 'simulation.log'
+        file_handler = RotatingFileHandler(log_file, maxBytes=1024*1024*5, backupCount=5) # 5 MB per file, 5 backup files
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        
+        logging.basicConfig(level=logging.INFO, handlers=[file_handler, console_handler])
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("Application started.")
 
-from gui.main_window import MainWindow  # noqa: E402
-from gui.styles import apply_styles  # noqa: E402
+    def add_tabs(self):
+        self.render_tab = RenderTab(self.simulation)
+        self.simulation_tab = SimulationTab(self.simulation)
+        self.log_tab = LogTab()
+        self.sensor_tab = SensorTab(self.simulation)
 
+        self.tab_widget.addTab(self.render_tab, "Render")
+        self.tab_widget.addTab(self.simulation_tab, "Simulation")
+        self.tab_widget.addTab(self.log_tab, "Logs")
+        self.tab_widget.addTab(self.sensor_tab, "Sensors")
 
-def _configure_logging() -> None:
-    """Set up structured logging for the entire application."""
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
+    def create_menu(self):
+        menu_bar = self.menuBar()
 
-    console = logging.StreamHandler(sys.stderr)
-    console.setLevel(logging.INFO)
-    console.setFormatter(
-        logging.Formatter(
-            "%(asctime)s [%(levelname)-8s] %(name)s: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-    )
-    root.addHandler(console)
+        file_menu = menu_bar.addMenu('File')
+        load_action = QAction('Load URDF/XML', self)
+        load_action.triggered.connect(self.load_file)
+        file_menu.addAction(load_action)
 
+        exit_action = QAction('Exit', self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
 
-def main() -> None:
-    _configure_logging()
-    logger = logging.getLogger(__name__)
-    logger.info("Starting HermiSim — Dynamics Viewer")
+    def load_file(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(self, "Load URDF/XML File", "", "URDF Files (*.urdf);;XML Files (*.xml);;All Files (*)", options=options)
+        if file_path:
+            try:
+                self.file_loader.load_file(file_path)
+                self.logger.info(f"Loaded file: {file_path}")
+                QMessageBox.information(self, "Success", f"Successfully loaded file: {file_path}")
+            except Exception as e:
+                self.logger.error(f"Failed to load file: {file_path}, Error: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to load file: {e}")
 
+def initialize_tabs(simulation):
+    """Initialize and return the tabs for the main window."""
+    render_tab = RenderTab(simulation)
+    simulation_tab = SimulationTab(simulation)
+    log_tab = LogTab()
+    sensor_tab = SensorTab(simulation)
+    return render_tab, simulation_tab, log_tab, sensor_tab
+
+def initialize_components():
+    """Initialize and return the main components of the application."""
+    simulation = Simulation()
+    simulation_controls = SimulationControls(simulation)
+    object_renderer = ObjectRenderer(simulation)
+    file_loader = FileLoader(simulation)
+    sensor_data_viewer = SensorDataViewer()
+    engine = PhysicsEngine()
+    sensor = Sensor()
+    return simulation_controls, object_renderer, file_loader, sensor_data_viewer, engine, sensor, simulation
+
+def configure_simulation(file_loader, simulation, engine, sensor):
+    """Configure the simulation with initial data and engine settings."""
+    try:
+        initial_data = file_loader.load_initial_data()
+        simulation.load_robot(initial_data.get('robot_urdf', 'r2d2.urdf'))
+        engine.connect()
+        engine.set_simulation(simulation)
+        engine.set_sensor(sensor)
+    except Exception as e:
+        print(f"Error configuring simulation: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("HermiSim")
-    app.setOrganizationName("HermiTech Holdings")
     apply_styles(app)
+    
+    main_window = MainWindow()
+    
+    main_window.show()
+    
+    sys.exit(app.exec_())
 
-    window = MainWindow()
-    window.show()
-
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
