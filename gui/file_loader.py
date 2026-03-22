@@ -1,53 +1,53 @@
-import xml.etree.ElementTree as ET
-import pybullet as p
+"""File loading and model management for the simulation."""
+
+from __future__ import annotations
+
 import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from physics_engine.simulation import Simulation
+
+logger = logging.getLogger(__name__)
+
+_SUPPORTED_EXTENSIONS = {".urdf", ".xml", ".mjcf"}
+
 
 class FileLoader:
-    def __init__(self, simulation):
-        self.simulation = simulation
-        self.logger = logging.getLogger(__name__)
+    """Loads model files (MJCF, URDF) into the simulation."""
 
-    def load_file(self, file_path):
-        """Load a file into the simulation."""
-        try:
-            if file_path.endswith('.urdf'):
-                self.simulation.load_robot(file_path)
-            elif file_path.endswith('.xml'):
-                self._parse_xml(file_path)
-            else:
-                raise ValueError("Unsupported file format")
-            self.logger.info(f"Successfully loaded file: {file_path}")
-        except Exception as e:
-            self.logger.error(f"Failed to load file {file_path}: {e}")
-            raise RuntimeError(f"Failed to load file {file_path}: {e}")
+    def __init__(self, simulation: Simulation) -> None:
+        self._simulation = simulation
 
-    def _parse_xml(self, file_path):
-        """Parse an XML file and load any referenced URDF files."""
-        try:
-            tree = ET.parse(file_path)
-            root = tree.getroot()
-            
-            for element in root.findall('robot'):
-                urdf_path = element.get('urdf')
-                if urdf_path:
-                    self.simulation.load_robot(urdf_path)
-            self.logger.info(f"Successfully parsed XML file: {file_path}")
-        except ET.ParseError as e:
-            self.logger.error(f"Error parsing XML file {file_path}: {e}")
-            raise ValueError(f"Error parsing XML file {file_path}: {e}")
-        except Exception as e:
-            self.logger.error(f"Unexpected error parsing XML file {file_path}: {e}")
-            raise
+    def load_file(self, file_path: str) -> None:
+        """Load a single model file into the simulation."""
+        path = Path(file_path).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(f"File not found: {path}")
 
-    def load_initial_data(self):
-        """Load initial data for the simulation. Placeholder method."""
-        initial_data = {
-            'robot_urdf': 'r2d2.urdf'
-        }
-        self.logger.info("Loaded initial data")
-        return initial_data
+        suffix = path.suffix.lower()
+        if suffix not in _SUPPORTED_EXTENSIONS:
+            raise ValueError(
+                f"Unsupported file format '{suffix}'. "
+                f"Supported: {', '.join(sorted(_SUPPORTED_EXTENSIONS))}"
+            )
 
-    def load_multiple_files(self, file_paths):
-        """Load multiple files into the simulation."""
-        for file_path in file_paths:
-            self.load_file(file_path)
+        self._simulation.load_model(str(path))
+        logger.info("Loaded model file: %s", path)
+
+    def load_multiple_files(self, file_paths: list[str]) -> list[str]:
+        """Load multiple files, returning a list of any that failed."""
+        errors: list[str] = []
+        for fp in file_paths:
+            try:
+                self.load_file(fp)
+            except Exception as exc:
+                logger.error("Failed to load '%s': %s", fp, exc)
+                errors.append(f"{fp}: {exc}")
+        return errors
+
+    @staticmethod
+    def load_initial_data() -> dict:
+        """Return default initial configuration."""
+        return {"robot_urdf": "r2d2.urdf"}

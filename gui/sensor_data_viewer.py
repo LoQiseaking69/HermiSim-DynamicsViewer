@@ -1,35 +1,62 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QLabel
-from PyQt5.QtCore import QTimer
+"""Real-time sensor data display widget."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Optional
+
+import numpy as np
+from PySide6.QtWidgets import (
+    QHeaderView,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+if TYPE_CHECKING:
+    from physics_engine.simulation import Simulation
+
+logger = logging.getLogger(__name__)
+
 
 class SensorDataViewer(QWidget):
-    def __init__(self, simulation):
-        super().__init__()
-        self.simulation = simulation
-        self.init_ui()
-        self.init_timer()
+    """Table-based sensor data viewer driven by simulation signals."""
 
-    def init_ui(self):
-        layout = QVBoxLayout()
-        self.sensor_label = QLabel('Sensor Data')
-        layout.addWidget(self.sensor_label)
+    def __init__(
+        self, simulation: Simulation, parent: Optional[QWidget] = None
+    ) -> None:
+        super().__init__(parent)
+        self._simulation = simulation
+        self._init_ui()
+        self._simulation.sensor_data_updated.connect(self._update_data)
 
-        self.table_widget = QTableWidget()
-        self.table_widget.setColumnCount(2)
-        self.table_widget.setHorizontalHeaderLabels(['Sensor', 'Value'])
-        layout.addWidget(self.table_widget)
+    def _init_ui(self) -> None:
+        layout = QVBoxLayout(self)
 
-        self.setLayout(layout)
+        self._label = QLabel("Sensor Data")
+        self._label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        layout.addWidget(self._label)
 
-    def init_timer(self):
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_data)
-        self.timer.start(1000)  # Update every second
+        self._table = QTableWidget()
+        self._table.setColumnCount(2)
+        self._table.setHorizontalHeaderLabels(["Sensor", "Value"])
+        self._table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self._table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._table.setAlternatingRowColors(True)
+        layout.addWidget(self._table)
 
-    def update_data(self):
-        self.table_widget.setRowCount(0)  # Clear existing data
+    def _update_data(self, sensor_data: dict) -> None:
+        self._table.setRowCount(len(sensor_data))
+        for row, (name, value) in enumerate(sorted(sensor_data.items())):
+            self._table.setItem(row, 0, QTableWidgetItem(name))
+            formatted = self._format_value(value)
+            self._table.setItem(row, 1, QTableWidgetItem(formatted))
 
-        sensor_data = self.simulation.get_sensor_data()
-        for i, (sensor, value) in enumerate(sensor_data.items()):
-            self.table_widget.insertRow(i)
-            self.table_widget.setItem(i, 0, QTableWidgetItem(sensor))
-            self.table_widget.setItem(i, 1, QTableWidgetItem(str(value)))
+    @staticmethod
+    def _format_value(value) -> str:
+        if isinstance(value, np.ndarray):
+            with np.printoptions(precision=4, suppress=True):
+                return str(value)
+        return str(value)

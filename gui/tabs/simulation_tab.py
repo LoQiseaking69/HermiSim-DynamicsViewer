@@ -1,16 +1,25 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
+"""Simulation control tab."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
+
+from PySide6.QtWidgets import QVBoxLayout, QWidget
+
 from gui.simulation_controls import SimulationControls
 
+if TYPE_CHECKING:
+    from physics_engine.simulation import Simulation
+
+
 class SimulationTab(QWidget):
-    def __init__(self, simulation):
-        super().__init__()
-        self.simulation = simulation
-        self.init_ui()
+    """Tab containing the simulation transport and speed controls."""
 
-    def init_ui(self):
+    def __init__(
+        self, simulation: Simulation, parent: Optional[QWidget] = None
+    ) -> None:
+        super().__init__(parent)
+        self._simulation = simulation
         layout = QVBoxLayout(self)
-
-        self.controls = SimulationControls(self.simulation)
-        layout.addWidget(self.controls)
-
-        self.setLayout(layout)
+        self._controls = SimulationControls(simulation)
+        layout.addWidget(self._controls)

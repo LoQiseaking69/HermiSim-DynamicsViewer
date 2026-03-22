@@ -1,45 +1,77 @@
-import pyqtgraph.opengl as gl
-import pybullet as p
+"""3-D scene rendering using MuJoCo's offscreen renderer displayed in Qt."""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Optional
+
 import numpy as np
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-class ObjectRenderer:
-    def __init__(self, simulation):
-        self.simulation = simulation
-        self.view_widget = gl.GLViewWidget()
-        self.init_view()
+if TYPE_CHECKING:
+    from physics_engine.simulation import Simulation
 
-    def init_view(self):
-        self.view_widget.opts['distance'] = 20
-        grid = gl.GLGridItem()
-        self.view_widget.addItem(grid)
-        self.robot_items = []
+logger = logging.getLogger(__name__)
 
-    def render_robot(self):
-        if self.simulation.robot is not None:
-            self._clear_robot()
-            self._render_robot()
 
-    def _clear_robot(self):
-        for item in self.robot_items:
-            self.view_widget.removeItem(item)
-        self.robot_items = []
+class ObjectRenderer(QWidget):
+    """Widget that displays the latest rendered frame from the simulation."""
 
-    def _render_robot(self):
-        for link_index in range(p.getNumJoints(self.simulation.robot)):
-            link_state = p.getLinkState(self.simulation.robot, link_index)
-            pos, orn = link_state[4], link_state[5]
-            self._draw_sphere(pos)
+    def __init__(
+        self, simulation: Simulation, parent: Optional[QWidget] = None
+    ) -> None:
+        super().__init__(parent)
+        self._simulation = simulation
+        self._camera_name: Optional[str] = None
 
-    def _draw_sphere(self, pos):
-        pos = np.array(pos)
-        sphere = gl.GLScatterPlotItem(pos=[pos], size=0.1, color=(1, 0, 0, 1))
-        self.view_widget.addItem(sphere)
-        self.robot_items.append(sphere)
-    
-    def update_view(self):
-        self.render_robot()
-        self.view_widget.update()
+        self._image_label = QLabel(alignment=Qt.AlignCenter)
+        self._image_label.setMinimumSize(640, 480)
+        self._image_label.setStyleSheet("background-color: #1a1a1a;")
+        self._image_label.setText("No model loaded")
 
-    def reset_view(self):
-        self._clear_robot()
-        self.init_view()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._image_label)
+
+        # Connect to simulation signals
+        self._simulation.frame_rendered.connect(self._on_frame)
+        self._simulation.model_loaded.connect(self._on_model_loaded)
+
+    def set_camera(self, camera_name: Optional[str]) -> None:
+        self._camera_name = camera_name
+
+    def render_once(self) -> None:
+        """Force a single render outside of the simulation loop."""
+        frame = self._simulation.render_frame(self._camera_name)
+        if frame is not None:
+            self._display_frame(frame)
+
+    def _on_frame(self, frame: np.ndarray) -> None:
+        self._display_frame(frame)
+
+    def _on_model_loaded(self, info: dict) -> None:
+        self._image_label.setText(
+            f"Model loaded: {info.get('nbody', '?')} bodies, "
+            f"{info.get('njnt', '?')} joints, {info.get('ngeom', '?')} geoms"
+        )
+        self.render_once()
+
+    def _display_frame(self, frame: np.ndarray) -> None:
+        """Convert an RGB NumPy array to QPixmap and display it."""
+        if frame is None or frame.size == 0:
+            return
+        h, w = frame.shape[:2]
+        bytes_per_line = 3 * w
+        qimage = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(qimage)
+        scaled = pixmap.scaled(
+            self._image_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
+        self._image_label.setPixmap(scaled)
+
+    def reset_view(self) -> None:
+        """Clear the display."""
+        self._image_label.clear()
+        self._image_label.setText("No model loaded")
