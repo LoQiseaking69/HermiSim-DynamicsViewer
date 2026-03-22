@@ -1,114 +1,86 @@
-import pybullet as p
+"""Sensor manager — reads and tracks MuJoCo sensor data with rolling history."""
+
+from __future__ import annotations
+
 import logging
+from collections import deque
+from typing import Optional
+
 import numpy as np
 
-class Sensor:
-    def __init__(self, robot, sensor_type, position, orientation):
-        self.robot = robot
-        self.sensor_type = sensor_type
-        self.position = position
-        self.orientation = orientation
-        self.data = None
-        self.logger = logging.getLogger(__name__)
+from physics_engine.engine import PhysicsEngine
+from physics_engine.exceptions import SensorError
 
-        if self.robot is None:
-            self.logger.error("Sensor initialized with a None robot object.")
-            raise ValueError("Robot object cannot be None.")
+logger = logging.getLogger(__name__)
 
-        # Initialize sensor-specific parameters
-        if self.sensor_type == 'Lidar':
-            self.lidar_range = 5.0  # meters
-            self.lidar_num_rays = 100
-            self.lidar_ray_length = 1.0
-            self.lidar_debug = False
-        elif self.sensor_type == 'Camera':
-            self.camera_width = 640
-            self.camera_height = 480
-            self.camera_fov = 60
-            self.camera_near = 0.1
-            self.camera_far = 100
 
-    def update(self):
-        if self.sensor_type == 'IMU':
-            self.data = self._get_imu_data()
-        elif self.sensor_type == 'Lidar':
-            self.data = self._get_lidar_data()
-        elif self.sensor_type == 'Camera':
-            self.data = self._get_camera_data()
-        else:
-            self.logger.error(f"Unknown sensor type: {self.sensor_type}")
-            raise ValueError(f"Unknown sensor type: {self.sensor_type}")
+class SensorManager:
+    """Reads from MuJoCo's built-in sensor system and maintains history.
 
-    def get_data(self):
-        return self.data
+    Sensors are defined in the MJCF model file (``<sensor>`` element).
+    This class provides named access, rolling history, and metadata queries.
+    """
 
-    def _get_imu_data(self):
+    def __init__(self, engine: PhysicsEngine, history_length: int = 500) -> None:
+        self._engine = engine
+        self._history_length = history_length
+        self._history: dict[str, deque[np.ndarray]] = {}
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def available_sensors(self) -> list[str]:
+        """Return names of all sensors in the loaded model."""
+        if not self._engine.is_initialized:
+            return []
+        import mujoco
+        model = self._engine.model
+        names: list[str] = []
+        for i in range(model.nsensor):
+            name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_SENSOR, i)
+            names.append(name or f"sensor_{i}")
+        return names
+
+    def read(self, sensor_name: str) -> np.ndarray:
+        """Read the latest value for *sensor_name*."""
         try:
-            linear_acceleration, angular_velocity = p.getBaseVelocity(self.robot)
-            return {
-                'acceleration': linear_acceleration,
-                'gyro': angular_velocity
-            }
-        except p.error as e:
-            self.logger.error(f"PyBullet error getting IMU data: {e}")
-            return None
+            return self._engine.get_sensor_data(sensor_name)
+        except (ValueError, Exception) as exc:
+            raise SensorError(f"Cannot read sensor '{sensor_name}': {exc}") from exc
 
-    def _get_lidar_data(self):
-        try:
-            # Simulate lidar rays
-            ray_from = []
-            ray_to = []
-            for i in range(self.lidar_num_rays):
-                # Simple circular pattern for now, can be improved
-                angle = 2 * np.pi * i / self.lidar_num_rays
-                ray_from.append([self.position[0], self.position[1], self.position[2]])
-                ray_to.append([self.position[0] + self.lidar_range * np.cos(angle), 
-                               self.position[1] + self.lidar_range * np.sin(angle), 
-                               self.position[2]])
-            
-            results = p.rayTestBatch(ray_from, ray_to)
-            distances = []
-            for hit_object_uid, hit_link_index, hit_fraction, hit_position, hit_normal in results:
-                if hit_fraction < 1.0: # If ray hit something
-                    distances.append(hit_fraction * self.lidar_range)
-                else:
-                    distances.append(self.lidar_range) # No hit, return max range
-            
-            return {
-                'distances': distances
-            }
-        except p.error as e:
-            self.logger.error(f"PyBullet error getting Lidar data: {e}")
-            return None
+    def read_all(self) -> dict[str, np.ndarray]:
+        """Read all sensors and update history; return {name: value}."""
+        data = self._engine.get_all_sensor_data()
+        for name, value in data.items():
+            if name not in self._history:
+                self._history[name] = deque(maxlen=self._history_length)
+            self._history[name].append(value.copy())
+        return data
 
-    def _get_camera_data(self):
-        try:
-            view_matrix = p.computeViewMatrixFromYawPitchRoll(
-                cameraTargetPosition=self.position,
-                distance=1.0,
-                yaw=0,
-                pitch=-30,
-                roll=0,
-                upAxisIndex=2
-            )
-            projection_matrix = p.computeProjectionMatrixFOV(
-                fov=self.camera_fov,
-                aspect=float(self.camera_width) / self.camera_height,
-                nearVal=self.camera_near,
-                farVal=self.camera_far
-            )
-            
-            width, height, rgb_img, depth_img, seg_img = p.getCameraImage(
-                width=self.camera_width,
-                height=self.camera_height,
-                viewMatrix=view_matrix,
-                projectionMatrix=projection_matrix
-            )
-            return {
-                'image': rgb_img,
-                'depth': depth_img,
-                'segmentation': seg_img
-            }
-        except p.error as e:
-            self.logger.error(f"PyBullet error getting Camera data: {e}")
+    def get_history(self, sensor_name: str) -> Optional[np.ndarray]:
+        """Return the rolling history for *sensor_name* as a 2-D array."""
+        hist = self._history.get(sensor_name)
+        if hist is None or len(hist) == 0:
             return None
+        return np.array(hist)
+
+    def sensor_info(self, sensor_name: str) -> dict:
+        """Return metadata about a sensor (dimension, address, etc.)."""
+        if not self._engine.is_initialized:
+            raise SensorError("Engine not initialized")
+        import mujoco
+        model = self._engine.model
+        sid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SENSOR, sensor_name)
+        if sid < 0:
+            raise SensorError(f"Sensor '{sensor_name}' not found")
+        return {
+            "name": sensor_name,
+            "id": sid,
+            "dim": int(model.sensor_dim[sid]),
+            "adr": int(model.sensor_adr[sid]),
+        }
+
+    def clear_history(self) -> None:
+        """Clear all recorded sensor history."""
+        self._history.clear()
