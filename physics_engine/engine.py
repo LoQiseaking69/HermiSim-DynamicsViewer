@@ -28,8 +28,8 @@ class PhysicsEngine:
         self._model: Optional[mujoco.MjModel] = None
         self._data: Optional[mujoco.MjData] = None
         self._renderer: Optional[mujoco.Renderer] = None
-        self._render_width: int = 1280
-        self._render_height: int = 720
+        self._render_width: int = 640
+        self._render_height: int = 480
 
     # ------------------------------------------------------------------
     # Properties
@@ -152,8 +152,13 @@ class PhysicsEngine:
             self._render_height = max(1, height)
             self._renderer = None  # force recreation
 
-    def render(self, camera_name: Optional[str] = None) -> np.ndarray:
-        """Render the scene, returning an RGB uint8 array (H, W, 3)."""
+    def render(self, camera_name: Optional[str] = None,
+               camera: Optional[mujoco.MjvCamera] = None) -> np.ndarray:
+        """Render the scene, returning an RGB uint8 array (H, W, 3).
+
+        If *camera* (an MjvCamera) is provided it takes precedence over
+        *camera_name*.
+        """
         with self._lock:
             self._require_initialized()
             if self._renderer is None:
@@ -162,17 +167,21 @@ class PhysicsEngine:
                     height=self._render_height,
                     width=self._render_width,
                 )
-            camera_id = -1
-            if camera_name is not None:
-                camera_id = mujoco.mj_name2id(
-                    self._model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name
-                )
-                if camera_id < 0:
-                    logger.warning(
-                        "Camera '%s' not found — using free camera", camera_name
+            if camera is not None:
+                self._renderer.update_scene(self._data, camera=camera)
+            else:
+                camera_id = -1
+                if camera_name is not None:
+                    camera_id = mujoco.mj_name2id(
+                        self._model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name
                     )
-                    camera_id = -1
-            self._renderer.update_scene(self._data, camera=camera_id)
+                    if camera_id < 0:
+                        logger.warning(
+                            "Camera '%s' not found — using free camera",
+                            camera_name,
+                        )
+                        camera_id = -1
+                self._renderer.update_scene(self._data, camera=camera_id)
             return self._renderer.render().copy()
 
     def render_depth(self, camera_name: Optional[str] = None) -> np.ndarray:
@@ -294,6 +303,36 @@ class PhysicsEngine:
             adr = self._model.sensor_adr[sensor_id]
             dim = self._model.sensor_dim[sensor_id]
             return self._data.sensordata[adr : adr + dim].copy()
+
+    # ------------------------------------------------------------------
+    # State snapshot
+    # ------------------------------------------------------------------
+
+    def get_state(self) -> dict[str, np.ndarray | float]:
+        """Capture the current simulation state as a serialisable dict."""
+        with self._lock:
+            self._require_initialized()
+            return {
+                "qpos": self._data.qpos.copy(),
+                "qvel": self._data.qvel.copy(),
+                "ctrl": self._data.ctrl.copy(),
+                "time": float(self._data.time),
+            }
+
+    def set_state(self, state: dict[str, np.ndarray | float]) -> None:
+        """Restore a previously captured simulation state."""
+        with self._lock:
+            self._require_initialized()
+            if "qpos" in state:
+                np.copyto(self._data.qpos, state["qpos"])
+            if "qvel" in state:
+                np.copyto(self._data.qvel, state["qvel"])
+            if "ctrl" in state:
+                np.copyto(self._data.ctrl, state["ctrl"])
+            if "time" in state:
+                self._data.time = float(state["time"])
+            mujoco.mj_forward(self._model, self._data)
+            logger.debug("Simulation state restored")
 
     # ------------------------------------------------------------------
     # Model info

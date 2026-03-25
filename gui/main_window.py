@@ -52,6 +52,9 @@ class MainWindow(QMainWindow):
         self._simulation.state_changed.connect(self._on_state_changed)
         self._simulation.error_occurred.connect(self._on_error)
 
+        # Auto-load last (or default starter) model
+        self._auto_load_model()
+
     # ------------------------------------------------------------------
     # Tabs
     # ------------------------------------------------------------------
@@ -125,6 +128,30 @@ class MainWindow(QMainWindow):
     # Slots
     # ------------------------------------------------------------------
 
+    def _auto_load_model(self) -> None:
+        """Load the last-used model, falling back to the bundled starter."""
+        path = FileLoader.last_model_path() or FileLoader.default_model_path()
+        if path is None:
+            return
+        try:
+            self._file_loader.load_file(str(path))
+            self._status_bar.showMessage(f"Loaded: {path}")
+            logger.info("Auto-loaded model: %s", path)
+            self._restore_last_state()
+        except Exception as exc:
+            logger.warning("Auto-load failed for %s: %s", path, exc)
+
+    def _restore_last_state(self) -> None:
+        """Restore the simulation state saved during the previous session."""
+        state = FileLoader.load_last_state()
+        if state is None:
+            return
+        try:
+            self._simulation.engine.set_state(state)
+            logger.info("Restored previous simulation state")
+        except Exception as exc:
+            logger.warning("Could not restore simulation state: %s", exc)
+
     def _open_file_dialog(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -161,5 +188,16 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802
         logger.info("Application closing — stopping simulation")
+        self._save_current_state()
         self._simulation.stop()
         super().closeEvent(event)
+
+    def _save_current_state(self) -> None:
+        """Persist the engine state so it can be restored next launch."""
+        if not self._simulation.engine.is_initialized:
+            return
+        try:
+            state = self._simulation.engine.get_state()
+            FileLoader.save_last_state(state)
+        except Exception as exc:
+            logger.warning("Could not save simulation state on exit: %s", exc)

@@ -12,38 +12,43 @@
     -   [Local Installation](#local-installation)
     -   [Running with Docker](#running-with-docker)
 5.  [Running Tests](#running-tests)
-6.  [Components](#components)
+6.  [Continuous Integration/Continuous Deployment (CI/CD)](#continuous-integrationcontinuous-deployment-cicd)
+7.  [Components](#components)
     -   [`main.py`](#mainpy)
     -   [GUI Components](#gui-components)
     -   [Tabs](#tabs)
     -   [Physics Engine](#physics-engine)
-7.  [Enhancements and Hardening](#enhancements-and-hardening)
-8.  [License](#license)
+8.  [Enhancements and Hardening](#enhancements-and-hardening)
+9.  [License](#license)
 
 ## Overview
 
-HermiSim-DynamicsViewer is a robotics simulation suite built with **MuJoCo** and **PySide6**. It supports loading MJCF/URDF/XML model files, rendering scenes in 3D, and running physics-based simulations in a non-blocking threaded architecture. The application provides a multi-tab GUI for real-time simulation control, sensor data visualization, log inspection, and an interactive MJCF model builder. This suite focuses on robustness, maintainability, and production-grade quality.
+This Robotics Simulation Suite is a sophisticated application designed for loading MJCF/URDF model files, rendering objects in a 3D space, and running robotic simulations powered by MuJoCo. The application provides multiple tabs and functionalities for a comprehensive simulation environment, with a focus on robustness, maintainability, and production-grade quality.
 
 ## Features
 
--   **Load MJCF/URDF/XML Models**: Load and parse MuJoCo-compatible model files (`.xml`, `.mjcf`, `.urdf`).
--   **3D Rendering**: Visualize robots and environments in 3D using MuJoCo's built-in renderer via PySide6.
--   **MuJoCo Physics Engine**: Leverage MuJoCo for high-fidelity physics simulations with thread-safe lifecycle management.
--   **Threaded Simulation Loop**: Physics stepping runs on a dedicated `QThread` so the GUI always stays responsive.
--   **Sensor Data**: Read and display data from any sensors defined in the loaded MJCF model, with rolling history tracking.
--   **Simulation Controls**: Start, pause, stop, reset simulations, perform single-step advances, and control playback speed.
--   **MJCF Model Builder**: Interactively construct MJCF models step-by-step with a live XML preview and syntax highlighting.
--   **Logs and Debugging**: View application logs in a dedicated tab; logs are also written to `hermisim.log`.
--   **Modular Design**: The application is modular, allowing easy extension and maintenance.
--   **Robust Error Handling**: Custom exception hierarchy and comprehensive error handling across all modules.
--   **Comprehensive Testing**: Unit tests for core functionalities using `pytest`.
--   **Containerization**: Docker support for easy deployment and environment consistency.
+-   **Load MJCF/URDF Models**: Load `.xml`, `.mjcf`, and `.urdf` model files for simulation.
+-   **Interactive 3D Rendering**: Visualise models in an interactive viewport with orbit, pan, and zoom camera controls (MuJoCo offscreen renderer + PySide6).
+-   **Physics Engine**: Leverage MuJoCo for realistic rigid-body dynamics.
+-   **Bundled Starter Model**: Ships with a complete bipedal robot (`models/starter_model.xml`) loaded automatically on first launch.
+-   **Session Persistence**: Remembers the last-loaded model **and** its simulation state (joint positions, velocities, controls, time) across sessions.
+-   **Model Builder**: Visual wizard for composing MJCF models from scratch (bodies, joints, actuators, sensors, cameras).
+-   **Sensor Data**: Real-time display of joint, actuator, and contact sensor readings.
+-   **Simulation Controls**: Start, pause, stop, reset, single-step, and adjustable playback speed / timestep.
+-   **Logs and Debugging**: Rotating file + console logging with a dedicated Logs tab.
+-   **Modular Design**: Clean separation of GUI, physics engine, and file I/O layers.
+-   **Comprehensive Testing**: Unit tests for core modules.
+-   **Containerization**: Docker support for reproducible environments.
+-   **CI/CD Pipeline**: GitHub Actions for automated builds and tests.
 
 ## Directory Structure
 
 ```
-HermiSim-DynamicsViewer/
+HERMISIM/
 │
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── gui/
 │   ├── styles.py
 │   ├── main_window.py
@@ -51,12 +56,14 @@ HermiSim-DynamicsViewer/
 │   ├── object_renderer.py
 │   ├── simulation_controls.py
 │   ├── sensor_data_viewer.py
-│   └── tabs/
-│       ├── render_tab.py
-│       ├── simulation_tab.py
-│       ├── log_tab.py
-│       ├── sensor_tab.py
-│       └── model_builder_tab.py
+│   ├── tabs/
+│   │   ├── render_tab.py
+│   │   ├── simulation_tab.py
+│   │   ├── log_tab.py
+│   │   ├── sensor_tab.py
+│   │   └── model_builder_tab.py
+├── models/
+│   └── starter_model.xml
 ├── physics_engine/
 │   ├── engine.py
 │   ├── simulation.py
@@ -67,11 +74,12 @@ HermiSim-DynamicsViewer/
 │   ├── test_physics_engine.py
 │   ├── test_sensor.py
 │   └── test_simulation.py
+├── .state/                (generated — persisted simulation state)
 ├── Dockerfile
 ├── main.py
 ├── README.md
 ├── requirements.txt
-└── hermisim.log (generated at runtime)
+└── hermisim.log           (generated at runtime)
 ```
 
 ## Installation and Usage
@@ -112,7 +120,7 @@ HermiSim-DynamicsViewer/
     ```bash
     docker run -it --rm --name hermisim-app hermisim-dynamicsviewer
     ```
-    *Note: Running GUI applications directly in Docker requires X server forwarding. For development, local installation is recommended. For deployment, consider VNC or X11 forwarding solutions.*
+    *Note: Running GUI applications directly in Docker can be complex due to X server forwarding. For development, local installation is recommended. For deployment, consider VNC or X11 forwarding solutions.* 
 
 ## Running Tests
 
@@ -123,44 +131,54 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 pytest
 ```
 
+## Continuous Integration/Continuous Deployment (CI/CD)
+
+The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically builds and tests the application on every push and pull request. It also builds a Docker image of the application.
+
 ## Components
 
 #### `main.py`
--   **Entry Point**: Applies a MuJoCo Windows DLL workaround, configures rotating-file and console logging, initializes the PySide6 application, applies styles, and launches the main window.
+-   **Entry Point**: Applies a MuJoCo Windows DLL workaround, configures rotating-file + console logging, and launches the main window.
 
 #### GUI Components
 -   **`styles.py`**: Defines and applies visual styles using PySide6.
--   **`main_window.py`**: Hosts the main window, integrates all tabs, manages file loading, and orchestrates the simulation lifecycle.
--   **`file_loader.py`**: Loads and validates MJCF/URDF/XML model files with explicit file-existence and format checks.
--   **`object_renderer.py`**: Renders MuJoCo scenes in a 3D viewport within the GUI.
--   **`simulation_controls.py`**: Controls for starting, pausing, stopping, resetting simulations, and adjusting playback speed.
+-   **`main_window.py`**: Hosts the main window, integrates tabs, manages file loading, auto-loads the last (or default) model on startup, and persists simulation state on exit.
+-   **`file_loader.py`**: Validates and loads MJCF/URDF files into the simulation. Tracks the last-loaded model path via `QSettings` and saves/restores simulation state snapshots to disk.
+-   **`object_renderer.py`**: Interactive 3D viewport — renders the scene via MuJoCo's offscreen renderer and supports orbit, pan, and zoom with mouse controls.
+-   **`simulation_controls.py`**: Transport buttons (start/pause/stop/reset/step), playback speed slider, and timestep editor.
 -   **`sensor_data_viewer.py`**: Displays real-time sensor data in a tabular format.
 
 #### Tabs
--   **`render_tab.py`**: Visualization of robots and environments using the MuJoCo renderer.
--   **`simulation_tab.py`**: Contains elements for controlling the simulation (start, pause, stop, reset, speed).
--   **`log_tab.py`**: Displays application logs and debugging information.
--   **`sensor_tab.py`**: Manages and visualizes sensor data from the loaded model.
--   **`model_builder_tab.py`**: Step-by-step MJCF model builder with a live XML preview pane and syntax highlighting.
+-   **`render_tab.py`**: Interactive 3D viewport with camera selection dropdown.
+-   **`simulation_tab.py`**: Contains simulation transport and speed controls.
+-   **`log_tab.py`**: Displays logs and debugging information.
+-   **`sensor_tab.py`**: Manages and displays sensor-related data.
+-   **`model_builder_tab.py`**: Multi-page wizard for composing MJCF models (bodies, joints, actuators, sensors, cameras) and previewing/exporting the generated XML.
+
+#### Models
+-   **`starter_model.xml`**: Bundled bipedal robot with 2-DOF hips, knees, ankles, 8 actuators, and 32 sensors (joint pos/vel, actuator forces, contact, IMU).
 
 #### Physics Engine
--   **`engine.py`**: Thread-safe MuJoCo wrapper providing model loading (from path or XML string), simulation stepping, rendering (RGB and depth), body/joint queries, actuator control, force application, and sensor data access.
--   **`simulation.py`**: High-level simulation controller. Manages the `PhysicsEngine` lifecycle and delegates continuous physics stepping to a background `_SimulationWorker` on a dedicated `QThread`. Communicates state changes, sensor updates, and rendered frames to the GUI via Qt signals.
--   **`sensor.py`**: `SensorManager` class that reads MuJoCo's built-in sensor system, maintains per-sensor rolling history, and provides named access and metadata queries.
--   **`exceptions.py`**: Custom exception hierarchy (`PhysicsEngineError`, `EngineNotInitializedError`, `ModelLoadError`, `SimulationStateError`, `SensorError`) for structured error handling throughout the engine.
+-   **`engine.py`**: Thread-safe MuJoCo wrapper providing model loading, stepping, rendering (with interactive `MjvCamera` support), state snapshot/restore, body/joint/sensor queries, and force application.
+-   **`simulation.py`**: Qt-based state machine (idle/running/paused/error) managing a background worker thread for real-time physics stepping, with signals for state changes, sensor data, and rendered frames.
+-   **`sensor.py`**: Sensor simulation utilities.
+-   **`exceptions.py`**: Custom exception types (`ModelLoadError`, `EngineNotInitializedError`).
 
 ## Enhancements and Hardening
 
--   **MuJoCo Integration**: Replaced PyBullet with MuJoCo (`mujoco>=3.0`) as the physics backend, providing higher-fidelity simulation, built-in sensor support, and a unified rendering pipeline.
--   **PySide6 UI Framework**: Migrated from PyQt to PySide6 (`PySide6>=6.5`) for an actively maintained Qt binding with an LGPL-compatible license.
--   **Threaded Physics Loop**: The `physics_engine/simulation.py` module uses a dedicated `QThread` and `_SimulationWorker` for non-blocking simulation. This replaces the earlier `QTimer`-based approach, providing smoother real-time stepping and accurate speed-multiplier control.
--   **Custom Exception Hierarchy**: `physics_engine/exceptions.py` defines a structured set of exceptions (`PhysicsEngineError` and subclasses) that replace generic Python built-ins, enabling precise error handling and cleaner user-facing messages throughout the codebase.
--   **MJCF Model Builder**: A new `model_builder_tab.py` allows users to construct MJCF models interactively within the application, with a live XML preview pane featuring syntax highlighting, reducing the need for an external editor.
--   **Sensor History Tracking**: `SensorManager` in `physics_engine/sensor.py` maintains a configurable rolling deque of historical readings per sensor, enabling trend visualization and post-hoc analysis without external data stores.
--   **Centralized Logging**: `main.py` configures a root logger with a `RotatingFileHandler` (writing to `hermisim.log`, max 5 MB, 3 backups) and a `StreamHandler` for console output, capturing all application events across modules.
--   **Input Validation**: `file_loader.py` and `engine.py` perform explicit checks for file existence and supported formats (`.xml`, `.mjcf`, `.urdf`), raising descriptive custom exceptions on invalid input.
--   **Unit Testing**: `tests/` contains `pytest`-based unit tests for `file_loader.py`, `physics_engine/engine.py`, `physics_engine/simulation.py`, and `physics_engine/sensor.py`, covering success and failure scenarios with `unittest.mock`.
--   **Containerization**: A `Dockerfile` containerizes the application using `python:3.9-slim-buster`, ensuring reproducible environments across development and deployment targets.
+This version includes several key improvements:
+
+-   **MuJoCo Backend**: Migrated from PyBullet to MuJoCo for higher-fidelity rigid-body dynamics and native MJCF support.
+-   **PySide6 UI**: Modern Qt 6 interface with dark theme, tab-based layout, and interactive 3D viewport.
+-   **Interactive Camera Controls**: Orbit (left-drag), pan (middle-drag / Shift+left), and zoom (scroll / right-drag) directly in the Render tab.
+-   **Bundled Bipedal Robot**: A complete starter model (`models/starter_model.xml`) with torso, legs, actuators, and 32 sensors — loaded automatically on first launch.
+-   **Session Persistence**: The last-loaded model path is saved via `QSettings`, and the full simulation state (qpos, qvel, ctrl, time) is serialised to `.state/last_state.npz` on exit and restored on next launch.
+-   **Model Builder Wizard**: Multi-page GUI for composing MJCF models without hand-editing XML.
+-   **Centralized Logging**: Rotating file handler (5 MB, 3 backups) + console output with timestamped format.
+-   **Thread-Safe Engine**: All `PhysicsEngine` methods are guarded by a reentrant lock; simulation runs on a dedicated `QThread`.
+-   **Unit Testing**: `pytest` + `unittest.mock` tests for file loading, engine, simulation, and sensors.
+-   **Containerization**: Dockerfile for reproducible builds.
+-   **CI/CD**: GitHub Actions workflow for automated testing on push/PR.
 
 ## License
 

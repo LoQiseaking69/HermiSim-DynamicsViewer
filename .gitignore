@@ -1,0 +1,14 @@
+# Runtime state (persisted between sessions)
+.state/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+hermisim.log
+hermisim.log.*
+
+# Virtual environment
+.venv/
