@@ -56,6 +56,44 @@ class PhysicsEngine:
     # Lifecycle
     # ------------------------------------------------------------------
 
+    def _close_renderer(self) -> None:
+        """Release the GL renderer of the previous model (it is rebuilt lazily for the new one)."""
+        if self._renderer is not None:
+            try:
+                self._renderer.close()
+            except Exception:  # noqa: BLE001
+                pass
+        self._renderer = None
+
+    def scene_bounds(self) -> Optional[tuple[np.ndarray, float]]:
+        """Centre and radius of everything except ground planes and the world body's huge geoms.
+
+        Used to frame the camera on the robot instead of on the (infinite/very large) floor.
+        """
+        with self._lock:
+            if self._model is None:
+                return None
+            m, d = self._model, self._data
+            lo = np.full(3, np.inf)
+            hi = np.full(3, -np.inf)
+            for g in range(m.ngeom):
+                if m.geom_type[g] in (mujoco.mjtGeom.mjGEOM_PLANE, mujoco.mjtGeom.mjGEOM_HFIELD):
+                    continue
+                r = float(m.geom_rbound[g])
+                if r <= 0 or (m.geom_bodyid[g] == 0 and r > 5.0):
+                    continue                     # skip skyboxes / large static scenery
+                c = d.geom_xpos[g]
+                lo = np.minimum(lo, c - r)
+                hi = np.maximum(hi, c + r)
+            if not np.all(np.isfinite(lo)):
+                return None
+            # Floor-aware: include z=0 when the model stands on a plane so feet aren't cropped.
+            if any(m.geom_type[g] == mujoco.mjtGeom.mjGEOM_PLANE for g in range(m.ngeom)):
+                lo[2] = min(lo[2], 0.0)
+            centre = (lo + hi) / 2
+            radius = float(np.linalg.norm(hi - lo) / 2)
+            return centre, max(radius, 0.05)
+
     def load_model_from_path(self, path: str) -> None:
         """Load an MJCF or URDF model from *path*."""
         resolved = Path(path).resolve()
@@ -73,7 +111,10 @@ class PhysicsEngine:
             try:
                 self._model = mujoco.MjModel.from_xml_path(str(resolved))
                 self._data = mujoco.MjData(self._model)
-                self._renderer = None  # lazily recreated on next render
+                # Pose the model (body/geom world positions) so it renders correctly before the
+                # first physics step — without this every body sits at the origin.
+                mujoco.mj_forward(self._model, self._data)
+                self._close_renderer()
                 logger.info("Model loaded: %s", resolved)
             except Exception as exc:
                 self._model = None
@@ -88,7 +129,8 @@ class PhysicsEngine:
             try:
                 self._model = mujoco.MjModel.from_xml_string(xml_string)
                 self._data = mujoco.MjData(self._model)
-                self._renderer = None
+                mujoco.mj_forward(self._model, self._data)
+                self._close_renderer()
                 logger.info("Model loaded from XML string")
             except Exception as exc:
                 self._model = None
@@ -147,10 +189,15 @@ class PhysicsEngine:
     # ------------------------------------------------------------------
 
     def set_render_size(self, width: int, height: int) -> None:
+        """Size of rendered frames (capped by the model's offscreen buffer, <global offwidth/offheight>)."""
         with self._lock:
-            self._render_width = max(1, width)
-            self._render_height = max(1, height)
-            self._renderer = None  # force recreation
+            if self._model is not None:
+                width = min(width, int(self._model.vis.global_.offwidth))
+                height = min(height, int(self._model.vis.global_.offheight))
+            width, height = max(16, width), max(16, height)
+            if (width, height) != (self._render_width, self._render_height):
+                self._render_width, self._render_height = width, height
+                self._close_renderer()  # recreated at the new size on the next render
 
     def render(self, camera_name: Optional[str] = None,
                camera: Optional[mujoco.MjvCamera] = None) -> np.ndarray:

@@ -9,7 +9,7 @@
 ; ──────────────────────────────────────────────────────────────────────────────
 
 #ifndef AppVersion
-  #define AppVersion "2.0.2"
+  #define AppVersion "2.0.3"
 #endif
 #define AppName      "HermiSim"
 #define AppPublisher "HermiTech LLC"

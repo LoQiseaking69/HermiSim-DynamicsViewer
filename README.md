@@ -21,8 +21,9 @@ The bundled **Morty** project rewrites the
 | | |
 |---|---|
 | **Tulpa editor** | Syntax highlighting, a language-server client (`tulpa lsp`) with live diagnostics, hover, completion and go-to-definition, an outline, find/replace, and multiple tabs. |
+| **Tulpa terminal** | A live `tulpa` REPL docked beside the console. `$ check main.rav` runs tulpa commands, `! cmd` runs shell commands, Ctrl+Enter sends the editor selection. |
 | **Run configurations** | Run, Test (`define_test!`), Verify (contract fuzzing), Build (LLVM native object + header), Bytecode and Diagram. Projects define their own configurations in `hermisim.json`. |
-| **Co-simulation** | *Run in Simulator* starts a MuJoCo session and the program connects with `cosim::connect()`. Each `sim.step(ctrl, n)` applies controls, advances physics and returns an observation: joints, sensors, COM, contacts. You can run as fast as possible or at real time ×N, shove bodies from the UI, and use a free camera. |
+| **Co-simulation** | One ▶ Run button runs the selected target (the current file or a project configuration); programs that call `cosim::connect()` start a MuJoCo session automatically. Each `sim.step(ctrl, n)` applies controls, advances physics and returns an observation: joints, sensors, COM, contacts. You can run as fast as possible or at real time ×N and shove bodies from the UI. The viewport shows the floor stage even before a model loads, and frames each model automatically (double-click or ⌖ Frame to re-frame). |
 | **Live telemetry** | `tlm::plot("name", v)` streams to pyqtgraph plots. `tlm::status` drives the status bar. `tlm::artifact` links files the program produced. |
 | **Waveform viewer** | Opens VCD files written by `std/rtl` (or Verilog simulators), with zoom, pan, a cursor and signal filtering. |
 | **State-machine diagrams** | Renders every `machine` in the current file. |

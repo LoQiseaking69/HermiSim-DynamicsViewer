@@ -157,6 +157,10 @@ class SimPanel(QWidget):
         self.cam.addItem("Free camera", None)
         self.cam.currentIndexChanged.connect(lambda _: self.view.set_camera(self.cam.currentData()))
         bar.addWidget(self.cam)
+        frame = QPushButton("⌖ Frame")
+        frame.setToolTip("Frame the model (or double-click the viewport)")
+        frame.clicked.connect(lambda: (self.cam.setCurrentIndex(0), self.view.frame_model()))
+        bar.addWidget(frame)
         lay.addLayout(bar)
         push = QHBoxLayout()
         push.setContentsMargins(8, 0, 8, 8)
@@ -236,6 +240,8 @@ class IdeWindow(QMainWindow):
         self.outline = OutlinePanel()
         self.outline.symbol_clicked.connect(lambda ln: self.editor() and self.editor().goto(ln))
         self.console = Console()
+        from gui.ide.terminal import TulpaTerminal
+        self.terminal = TulpaTerminal(lambda: self.runs.tc)
         self.console.location_clicked.connect(self.goto_location)
         self.problems = ProblemsPanel()
         self.problems.location_clicked.connect(self.goto_location)
@@ -254,10 +260,11 @@ class IdeWindow(QMainWindow):
         self.tabifyDockWidget(self.d_sim, self.d_sensors)
         self.d_sim.raise_()
         self.d_console = self._dock("Console", self.console, Qt.BottomDockWidgetArea)
+        self.d_terminal = self._dock("Tulpa Terminal", self.terminal, Qt.BottomDockWidgetArea)
         self.d_problems = self._dock("Problems", self.problems, Qt.BottomDockWidgetArea)
         self.d_plots = self._dock("Telemetry", self.plots, Qt.BottomDockWidgetArea)
         self.d_logs = self._dock("Logs", self.logs, Qt.BottomDockWidgetArea)
-        for d in (self.d_problems, self.d_plots, self.d_logs):
+        for d in (self.d_terminal, self.d_problems, self.d_plots, self.d_logs):
             self.tabifyDockWidget(self.d_console, d)
         self.d_console.raise_()
         self.resizeDocks([self.d_explorer, self.d_sim], [260, 520], Qt.Horizontal)
@@ -335,9 +342,12 @@ class IdeWindow(QMainWindow):
         self._act(e, "Go to Definition", lambda: self.editor() and self.editor().goto_definition())
 
         r = mb.addMenu("&Run")
-        self.a_run = self._act(r, "▶  Run", lambda: self.run_kind("run"), "F5")
-        self.a_sim = self._act(r, "⧉  Run in Simulator", lambda: self.run_kind("cosim"), "Shift+F5")
+        self.a_run = self._act(r, "▶  Run", self.run_target, "F5")
+        self.a_run.setToolTip("Run the selected target (F5). Programs that call cosim::connect() run in the simulator.")
+        self.a_sim = self._act(r, "Run Current File in Simulator", lambda: self.run_kind("cosim"), "Shift+F5")
         self.a_stop = self._act(r, "■  Stop", self.runs.stop, "Ctrl+F2")
+        self._act(r, "Send Selection to Tulpa Terminal", self._send_selection, "Ctrl+Return")
+        self._act(r, "Focus Tulpa Terminal", self._focus_terminal, "Ctrl+`")
         r.addSeparator()
         self._act(r, "Run Tests", lambda: self.run_kind("test"), "Ctrl+F5")
         self._act(r, "Verify Contracts (fuzz)", lambda: self.run_kind("verify"), "Ctrl+Shift+V")
@@ -357,7 +367,7 @@ class IdeWindow(QMainWindow):
 
         v = mb.addMenu("&View")
         for d in (self.d_explorer, self.d_outline, self.d_sim, self.d_sensors, self.d_console,
-                  self.d_problems, self.d_plots, self.d_logs):
+                  self.d_terminal, self.d_problems, self.d_plots, self.d_logs):
             v.addAction(d.toggleViewAction())
         v.addSeparator()
         self._act(v, "Model Builder", self.show_model_builder)
@@ -378,15 +388,12 @@ class IdeWindow(QMainWindow):
         tb.setIconSize(QSize(18, 18))
         self.config_combo = QComboBox()
         self.config_combo.setMinimumWidth(260)
-        self.config_combo.setToolTip("Run configuration")
+        self.config_combo.setToolTip("Run target: the file in the editor, or one of the project's run configurations")
+        self.config_combo.addItem("Current file", None)
         tb.addWidget(self.config_combo)
-        for act, name in [(self.a_run, "runButton"), (self.a_sim, "simButton"), (self.a_stop, "stopButton")]:
+        for act, name in [(self.a_run, "runButton"), (self.a_stop, "stopButton")]:
             tb.addAction(act)
             tb.widgetForAction(act).setObjectName(name)
-        go = QToolButton(text="▶ Config")
-        go.setToolTip("Run the selected configuration")
-        go.clicked.connect(self.run_selected_config)
-        tb.addWidget(go)
         tb.addSeparator()
         for label, kind in [("Test", "test"), ("Verify", "verify"), ("Build", "build")]:
             b = QToolButton(text=label)
@@ -515,6 +522,7 @@ class IdeWindow(QMainWindow):
         self.project = json.loads(cfg.read_text()) if cfg.is_file() else {"name": p.name}
         self.tree.set_root(str(p), self.project.get("name"))
         self.console.base_dir = str(p)
+        self.terminal.start(str(p))
         self.settings.setValue("project/last", str(p))
         self.setWindowTitle(f"{self.project.get('name', p.name)} — HermiSim IDE")
         model = self.project.get("model")
@@ -530,6 +538,7 @@ class IdeWindow(QMainWindow):
 
     def _populate_configs(self) -> None:
         self.config_combo.clear()
+        self.config_combo.addItem("Current file", None)
         self.configs_menu.clear()
         base = Path(self.project_dir or ".")
         for c in self.project.get("run_configurations", []):
@@ -736,8 +745,8 @@ class IdeWindow(QMainWindow):
         if kind in ("run", "cosim"):
             # reuse the args of a matching run configuration, if any
             for i in range(self.config_combo.count()):
-                c: RunConfig = self.config_combo.itemData(i)
-                if Path(c.file).resolve() == Path(ed.path).resolve() and c.kind in ("run", "cosim"):
+                c: Optional[RunConfig] = self.config_combo.itemData(i)
+                if c is not None and Path(c.file).resolve() == Path(ed.path).resolve() and c.kind in ("run", "cosim"):
                     args, matched = c.args, c
                     break
         if kind == "run" and (
@@ -756,11 +765,34 @@ class IdeWindow(QMainWindow):
         self.start(RunConfig(name=kind, kind=kind, file=ed.path, args=args, realtime=self.speed.value() / 10.0,
                              model=model, cwd=cwd))
 
+    def _focus_terminal(self) -> None:
+        self.d_terminal.show()
+        self.d_terminal.raise_()
+        self.terminal.input.setFocus()
+
+    def _send_selection(self) -> None:
+        ed = self.editor()
+        if ed is None:
+            return
+        cur = ed.textCursor()
+        text = cur.selectedText().replace("\u2029", "\n") if cur.hasSelection() else cur.block().text()
+        self._focus_terminal()
+        self.terminal.run_in_terminal(text)
+
+    def run_target(self) -> None:
+        """▶ Run: the selected run configuration, or the file in the editor ("Current file")."""
+        if self.config_combo.currentData() is None:
+            self.run_kind("run")
+        else:
+            self.run_selected_config()
+
     def run_selected_config(self) -> None:
         cfg = self.config_combo.currentData()
-        if cfg:
-            self.save_all()
-            self.start(cfg)
+        if cfg is None:
+            self.run_kind("run")
+            return
+        self.save_all()
+        self.start(cfg)
 
     def rerun(self) -> None:
         if self.runs.last_config:
@@ -924,6 +956,7 @@ class IdeWindow(QMainWindow):
             if r == QMessageBox.SaveAll:
                 self.save_all()
         self.runs.stop()
+        self.terminal.shutdown()
         if self.lsp:
             self.lsp.stop()
         self.simulation.stop()
