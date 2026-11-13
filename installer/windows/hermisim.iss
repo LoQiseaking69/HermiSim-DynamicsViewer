@@ -54,7 +54,6 @@ LZMANumBlockThreads=4
 ; ── look & feel ──
 WizardStyle=modern
 WizardSizePercent=110,110
-WizardResizable=no
 WizardImageFile=assets\wizard-large.bmp,assets\wizard-large@2x.bmp
 WizardSmallImageFile=assets\wizard-small.bmp,assets\wizard-small@2x.bmp
 WizardImageStretch=yes
