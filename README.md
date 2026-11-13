@@ -1,6 +1,6 @@
 # HermiSim-DynamicsViewer: A Robotics Simulation Suite
 
-![HermiSim Logo](HSlogo.jpg)
+![HermiSim Logo](https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/blob/main/image%20(20).webp)
 
 ## Table of Contents
 
