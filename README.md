@@ -12,6 +12,8 @@ HermiSim is an engineering workbench for writing robot software in
 The bundled **Morty** project rewrites the
 [Morty bipedal humanoid](https://github.com/LoQiseaking69/Morty) entirely in Tulpa.
 
+![HermiSim welcome page](image%20(20).webp)
+
 ![IDE running Morty in the simulator](docs/screenshots/02_cosim.png)
 
 ## Features
