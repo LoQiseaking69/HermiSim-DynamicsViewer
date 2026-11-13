@@ -15,6 +15,7 @@ param(
   [string]$TulpaSrc = "..\TulpaLang",
   [string]$Version  = "2.0.0",
   [switch]$Sign,
+  [switch]$Brand,
   [switch]$SkipTulpa
 )
 $ErrorActionPreference = "Stop"
@@ -28,9 +29,16 @@ if (-not $SkipTulpa) {
   Push-Location $TulpaSrc
   cargo build --release
   if ($LASTEXITCODE) { throw "cargo build failed" }
-  if (Get-Command npx -ErrorAction SilentlyContinue) {
+  if (Get-Command npm -ErrorAction SilentlyContinue) {
     Push-Location editors\vscode
-    npm ci --silent; npx --yes @vscode/vsce package -o ..\..\dist\tulpa-lang.vsix
+    npm ci --no-audit --no-fund
+    npm run package
+    if ($LASTEXITCODE) { Write-Warning "VS Code extension packaging failed - continuing without it" }
+    else {
+      New-Item -ItemType Directory -Force ..\..\dist | Out-Null
+      Get-ChildItem tulpa-lang-*.vsix | Sort-Object LastWriteTime | Select-Object -Last 1 |
+        Copy-Item -Destination ..\..\dist\tulpa-lang.vsix -Force
+    }
     Pop-Location
   }
   Pop-Location
@@ -38,14 +46,20 @@ if (-not $SkipTulpa) {
 
 Step "Staging toolchain"
 python installer\stage_toolchain.py $TulpaSrc
+if ($LASTEXITCODE) { throw "staging failed" }
 
 Step "Python dependencies"
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt pyinstaller==6.*
+if ($LASTEXITCODE) { throw "pip install failed" }
 
-Step "Regenerating brand assets"
-python -m pip install cairosvg pillow
-python tools\make_brand_assets.py
+if ($Brand) {
+  # Rendered assets are committed; regenerate only on request (cairosvg needs the Cairo DLL).
+  Step "Regenerating brand assets"
+  python -m pip install cairosvg pillow
+  python tools\make_brand_assets.py
+  if ($LASTEXITCODE) { throw "brand asset rendering failed" }
+}
 
 Step "PyInstaller bundle"
 New-Item -ItemType Directory -Force build | Out-Null
@@ -56,7 +70,9 @@ if ($LASTEXITCODE) { throw "pyinstaller failed" }
 
 Step "Smoke test: bundled toolchain"
 & dist\HermiSim\_internal\toolchain\bin\tulpa.exe -V
+$env:PYTHONIOENCODING = "utf-8"
 & dist\HermiSim\hermisim-cli.exe doctor
+if ($LASTEXITCODE) { throw "bundled doctor failed" }
 & dist\HermiSim\hermisim-cli.exe exec workspace\morty\board\motherboard.rav
 if ($LASTEXITCODE) { throw "bundled smoke test failed" }
 

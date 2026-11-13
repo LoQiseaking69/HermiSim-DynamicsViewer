@@ -116,7 +116,7 @@ class RunManager(QObject):
             self.stderr.emit(f"unknown run kind {cfg.kind}")
             return False
         self.last_config = cfg
-        self.proc = TulpaProcess(tc, argv, cwd=cfg.cwd or str(path.parent), env=env,
+        self.proc = TulpaProcess(tc, argv, cwd=cfg.cwd or str(toolchain.project_root(path)), env=env,
                                  on_stdout=self.stdout.emit, on_stderr=self.stderr.emit,
                                  on_telemetry=self.telemetry.emit)
         self._t0 = time.time()

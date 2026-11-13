@@ -88,7 +88,7 @@ def run_cosim(script: str, model: str, realtime: float = 0.0, timeout: Optional[
         session.on_notify = lambda m, p: print(f"[sim:{m}] {p}", file=sys.stderr)
     server = CoSimServer(session).start()
     script_path = Path(script).resolve()
-    proc = TulpaProcess(tc, [str(script_path), *(script_args or [])], cwd=str(script_path.parent),
+    proc = TulpaProcess(tc, [str(script_path), *(script_args or [])], cwd=str(toolchain.project_root(script_path)),
                         env={"TULPA_COSIM": server.address, "HERMISIM_MODEL": str(Path(model).resolve())},
                         on_telemetry=on_telemetry,
                         on_stdout=(lambda s: None) if quiet else None).start()
@@ -108,6 +108,11 @@ def run_cosim(script: str, model: str, realtime: float = 0.0, timeout: Optional[
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(prog="hermisim", description="HermiSim × TulpaLang runner")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="run a Tulpa program in lock-step with a MuJoCo model")
@@ -138,7 +143,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             print("error: tulpa toolchain not found", file=sys.stderr)
             return 2
         p = Path(a.script).resolve()
-        return TulpaProcess(tc, [str(p), *a.args], cwd=str(p.parent)).start().wait()
+        return TulpaProcess(tc, [str(p), *a.args], cwd=str(toolchain.project_root(p))).start().wait()
     return run_cosim(a.script, a.model, a.realtime, a.timeout, script_args=a.args, quiet=a.quiet)
 
 

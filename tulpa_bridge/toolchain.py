@@ -82,3 +82,13 @@ def find(configured: Optional[str] = None) -> Optional[Toolchain]:
                 continue
             return Toolchain(c.resolve(), version, _stdlib_for(c.resolve()))
     return None
+
+
+def project_root(script: "str | Path") -> Path:
+    """Working directory for running *script*: the nearest folder with a ``hermisim.json``
+    (project paths such as ``out/`` and ``weights/`` are relative to it), else the script's folder."""
+    p = Path(script).resolve()
+    for d in p.parents:
+        if (d / "hermisim.json").is_file():
+            return d
+    return p.parent
