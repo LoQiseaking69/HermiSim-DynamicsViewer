@@ -8,7 +8,7 @@ on:
       version:
         description: "Installer version (e.g. 2.0.0)"
         required: false
-        default: "2.0.1"
+        default: "2.0.2"
 
 permissions:
   contents: write
@@ -45,7 +45,7 @@ jobs:
         run: |
           $v = "${{ github.event.inputs.version }}"
           if ("${{ github.ref_type }}" -eq "tag") { $v = "${{ github.ref_name }}".TrimStart("v") }
-          if (-not $v) { $v = "2.0.1" }
+          if (-not $v) { $v = "2.0.2" }
           "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: Install Inno Setup

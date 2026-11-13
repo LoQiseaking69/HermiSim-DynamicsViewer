@@ -732,14 +732,24 @@ class IdeWindow(QMainWindow):
             if not self._save_editor(ed):
                 return
         args = []
+        matched: Optional[RunConfig] = None
         if kind in ("run", "cosim"):
             # reuse the args of a matching run configuration, if any
             for i in range(self.config_combo.count()):
                 c: RunConfig = self.config_combo.itemData(i)
                 if Path(c.file).resolve() == Path(ed.path).resolve() and c.kind in ("run", "cosim"):
-                    args = c.args
+                    args, matched = c.args, c
                     break
+        if kind == "run" and (
+            (matched is not None and matched.kind == "cosim") or "cosim::connect" in ed.toPlainText()
+        ):
+            # A program that calls cosim::connect() can only run against the simulator: plain Run
+            # would start it without a physics server and it would die on connect.
+            self.console.append(f"{Path(ed.path).name} uses cosim::connect() — running it in the simulator", "sys")
+            kind = "cosim"
         model = getattr(self.simulation, "model_path", None)
+        if kind == "cosim" and matched is not None and matched.model:
+            model = matched.model
         cwd = None
         if self.project_dir and Path(ed.path).resolve().is_relative_to(Path(self.project_dir).resolve()):
             cwd = self.project_dir          # project programs run from the project root (out/, weights/)
