@@ -30,8 +30,8 @@ def describe_error(exc: BaseException) -> str:
     hint = ""
     if "glfw" in low and ("shared library" in low or "no module" in low or "not found" in low):
         hint = "The GLFW library is missing from this install — reinstall HermiSim 2.0.1+ (or `pip install glfw`)."
-    elif "glfw" in low or "context" in low or "opengl" in low or "mjr_" in low:
-        hint = ("No usable OpenGL 3.3 context. Update the GPU driver; over Remote Desktop/VMs enable GPU "
+    elif any(k in low for k in ("glfw", "context", "opengl", "mjr_", "glad", "gl version")):
+        hint = ("No usable OpenGL 1.5+ driver (Windows' fallback driver only offers GL 1.1). Update or install the GPU driver; over Remote Desktop/VMs enable GPU "
                 "acceleration, or set MUJOCO_GL=egl/osmesa on Linux.")
     elif "pyopengl" in low or "OpenGL" in msg:
         hint = "PyOpenGL could not load the platform GL library."
