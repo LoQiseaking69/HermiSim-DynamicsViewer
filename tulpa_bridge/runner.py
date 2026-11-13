@@ -107,6 +107,59 @@ def run_cosim(script: str, model: str, realtime: float = 0.0, timeout: Optional[
     return code
 
 
+_SELFTEST_MODEL = """<mujoco><option timestep="0.002"/><worldbody><light pos="0 0 3"/>
+<geom type="plane" size="2 2 .1"/><body name="bob" pos="0 0 1"><joint name="hinge" type="hinge" axis="0 1 0"/>
+<geom type="capsule" fromto="0 0 0 0 0 -.5" size=".04"/></body></worldbody>
+<actuator><motor joint="hinge" name="m"/></actuator></mujoco>"""
+
+_SELFTEST_RAV = """let sim = cosim::connect()
+let info = sim.info()
+let o = sim.reset()
+for i in 0..20 { o = sim.step([0.1], 5) }
+print("COSIM-OK", info.nu, o.time)
+"""
+
+
+def selftest_cosim(tc: Optional[toolchain.Toolchain] = None, timeout: float = 30.0) -> tuple[bool, str]:
+    """End-to-end check: start a co-sim server on a pendulum, run a Tulpa client that steps it."""
+    import tempfile
+    from physics_engine.engine import PhysicsEngine
+    from tulpa_bridge.cosim_server import CoSimServer, CoSimSession
+
+    tc = tc or toolchain.find()
+    if tc is None:
+        return False, "tulpa toolchain not found (Settings ▸ Tulpa Toolchain, or set TULPA_BIN)"
+    with tempfile.TemporaryDirectory(prefix="hermisim-selftest-") as tmp:
+        model = Path(tmp) / "pendulum.xml"
+        model.write_text(_SELFTEST_MODEL)
+        script = Path(tmp) / "selftest.rav"
+        script.write_text(_SELFTEST_RAV)
+        engine = PhysicsEngine()
+        engine.load_model_from_path(str(model))
+        session = CoSimSession(engine)
+        try:
+            server = CoSimServer(session).start()
+        except OSError as exc:
+            return False, f"cannot open the co-sim TCP port on 127.0.0.1: {exc} (firewall/endpoint security?)"
+        out: list[str] = []
+        err: list[str] = []
+        proc = TulpaProcess(tc, [str(script)], cwd=tmp, env={"TULPA_COSIM": server.address},
+                            on_stdout=out.append, on_stderr=err.append).start()
+        try:
+            code = proc.wait(timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            code = 124
+        finally:
+            server.stop()
+        time.sleep(0.05)
+        text = "".join(out) + "".join(err)
+        if code == 0 and "COSIM-OK" in text:
+            return True, f"tulpa ↔ {server.address}: {session.steps} physics steps, sim t={engine.simulation_time:.3f}s"
+        why = "timed out" if code == 124 else f"exit {code}"
+        return False, f"{why}: {text.strip()[-800:] or '(no output)'}"
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252
         try:
@@ -136,7 +189,17 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(f"mujoco:  {mujoco.__version__}")
         except ImportError:
             print("mujoco:  NOT INSTALLED")
-        return 0 if tc else 1
+        from physics_engine import gl_backend
+        rc = 0 if tc else 1
+        if tc:
+            ok, detail = selftest_cosim(tc)
+            print(f"cosim:   {'ok' if ok else 'FAILED'} ({detail.strip()})")
+            rc = rc or (0 if ok else 4)
+        ok, detail = gl_backend.probe()
+        print(f"render:  {'ok' if ok else 'FAILED'} ({detail.strip()})")
+        if not ok and ("--render" in a.args or "--render" in (argv or sys.argv)):
+            rc = rc or 3          # rendering is only fatal when asked for (CI runners have no GPU)
+        return rc
     if a.cmd == "exec":
         tc = toolchain.find()
         if tc is None:

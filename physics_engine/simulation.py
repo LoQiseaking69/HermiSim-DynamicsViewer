@@ -274,11 +274,18 @@ class Simulation(QObject):
     # ------------------------------------------------------------------
 
     def _on_step(self, sim_time: float) -> None:
+        # The worker emits once per physics step (hundreds per second). Rendering and sensor
+        # polling run on the GUI thread, so cap them at the display rate or the UI starves.
+        import time as _t
+        now = _t.perf_counter()
+        if now - getattr(self, "_last_ui", 0.0) < 1 / 30:
+            return
+        self._last_ui = now
         self.time_updated.emit(sim_time)
         sensor = self.get_sensor_data()
         if sensor:
             self.sensor_data_updated.emit(sensor)
-        if self._render_enabled:
+        if self._render_enabled and self.receivers(self.frame_rendered) > 0:
             frame = self.render_frame()
             if frame is not None:
                 self.frame_rendered.emit(frame)

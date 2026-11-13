@@ -29,6 +29,13 @@ else:
 datas += collect_data_files("mujoco")
 datas += collect_data_files("pyqtgraph", includes=["**/*.png", "**/*.svg"])
 binaries = collect_dynamic_libs("mujoco")
+# GLFW: MuJoCo's offscreen GL context on Windows/macOS (and Linux with a display) is a hidden
+# glfw window. The pip `glfw` wheel ships the native library *inside the package*
+# (glfw/glfw3.dll, glfw/x11/libglfw.so, ...), which PyInstaller doesn't pick up by itself —
+# without it every frame fails with "Failed to load GLFW3 shared library".
+datas += collect_data_files("glfw", include_py_files=False)
+binaries += collect_dynamic_libs("glfw")
+datas += collect_data_files("OpenGL")
 
 a = Analysis(
     [str(ROOT / "main.py")],
@@ -41,7 +48,8 @@ a = Analysis(
         "gui.ide.userdata", "gui.main_window", "tulpa_bridge.cosim_server", "tulpa_bridge.runner",
         "tulpa_bridge.lsp_client", "pyqtgraph", "numpy",
     ] + collect_submodules("OpenGL.platform") + collect_submodules("OpenGL.arrays")
-      + collect_submodules("mujoco.egl") + collect_submodules("mujoco.osmesa") + collect_submodules("mujoco.glfw"),
+      + collect_submodules("mujoco.egl") + collect_submodules("mujoco.osmesa") + collect_submodules("mujoco.glfw")
+      + collect_submodules("mujoco.rendering") + collect_submodules("glfw") + ["physics_engine.gl_backend"],
     excludes=["tkinter", "matplotlib", "pandas", "scipy", "cv2", "IPython", "pytest"],
     noarchive=False,
 )

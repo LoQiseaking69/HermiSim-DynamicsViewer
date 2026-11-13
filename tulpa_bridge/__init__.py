@@ -6,3 +6,9 @@
 * :mod:`telemetry`     — parse ``@@tlm`` telemetry lines emitted by ``tlm::``
 * :mod:`lsp_client`    — minimal Language Server Protocol client for ``tulpa lsp``
 """
+
+
+# Select MuJoCo's GL backend before anything imports mujoco.
+from physics_engine import gl_backend as _gl  # noqa: E402
+
+_gl.configure()

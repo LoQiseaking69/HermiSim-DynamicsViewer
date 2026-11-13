@@ -15,6 +15,12 @@ import pathlib
 import sys
 from logging.handlers import RotatingFileHandler
 
+# Pick MuJoCo's GL backend before mujoco is imported anywhere.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from physics_engine import gl_backend  # noqa: E402
+
+gl_backend.configure()
+
 # MuJoCo on Windows may fail to load unrelated plugin DLLs at import time; hide them briefly.
 _spec = importlib.util.find_spec("mujoco")
 if _spec and _spec.origin and os.name == "nt":

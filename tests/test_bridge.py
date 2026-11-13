@@ -61,3 +61,17 @@ def test_fpga_governor_bit_exact():
     r = TC.run("fpga/testbench.rav", cwd=str(ROOT / "workspace" / "morty"), timeout=600)
     assert r.returncode == 0, r.stderr
     assert "8/8 responses bit-exact" in r.stdout
+
+
+@needs_tulpa
+def test_cosim_selftest():
+    pytest.importorskip("mujoco")
+    from tulpa_bridge.runner import selftest_cosim
+    ok, detail = selftest_cosim(TC)
+    assert ok, detail
+
+
+def test_render_error_hints():
+    from physics_engine.gl_backend import describe_error
+    msg = describe_error(ImportError("Failed to load GLFW3 shared library."))
+    assert "GLFW library is missing" in msg

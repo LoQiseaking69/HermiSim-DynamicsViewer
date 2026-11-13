@@ -369,7 +369,7 @@ class IdeWindow(QMainWindow):
         h = mb.addMenu("&Help")
         self._act(h, "Tulpa Language Guide", lambda: self._open_doc("language_guide.md"))
         self._act(h, "Tulpa Libraries (nn, rl, rtl, eda, …)", lambda: self._open_doc("libraries.md"))
-        self._act(h, "Toolchain Doctor", self.doctor)
+        self._act(h, "Diagnostics (toolchain, 3-D, co-sim)…", self.doctor)
         self._act(h, "About HermiSim", self.about)
 
         tb = self.addToolBar("Run")
@@ -841,15 +841,48 @@ class IdeWindow(QMainWindow):
             self._start_lsp()
 
     def doctor(self) -> None:
+        """Help ▸ Diagnostics: toolchain, OpenGL render probe and a loopback co-sim test."""
+        import os
+        import platform
+        from PySide6.QtGui import QGuiApplication
+        from physics_engine import gl_backend
+        from tulpa_bridge.runner import selftest_cosim
         tc = self.runs.tc
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            import mujoco
-            mj = mujoco.__version__
-        except ImportError:
-            mj = "not installed"
-        QMessageBox.information(self, "Toolchain doctor",
-                                f"tulpa:   {tc.binary if tc else 'NOT FOUND'}\nversion: {tc.version if tc else '-'}\n"
-                                f"stdlib:  {tc.stdlib if tc else '-'}\nMuJoCo:  {mj}\nLSP:     {'running' if self.lsp and self.lsp.alive else 'stopped'}")
+            try:
+                import mujoco
+                mj = mujoco.__version__
+            except ImportError:
+                mj = "not installed"
+            render_ok, render = gl_backend.probe()
+            cosim_ok, cosim = selftest_cosim(tc) if tc else (False, "tulpa not found")
+        finally:
+            QApplication.restoreOverrideCursor()
+        mark = lambda ok: "OK  " if ok else "FAIL"  # noqa: E731
+        report = (
+            f"HermiSim diagnostics\n"
+            f"platform: {platform.platform()}  python {platform.python_version()}\n"
+            f"tulpa:    {tc.binary if tc else 'NOT FOUND'}  ({tc.version if tc else '-'})\n"
+            f"stdlib:   {tc.stdlib if tc else '-'}\n"
+            f"MuJoCo:   {mj}   MUJOCO_GL={os.environ.get('MUJOCO_GL', '(default)')}\n"
+            f"LSP:      {'running' if self.lsp and self.lsp.alive else 'stopped'}\n\n"
+            f"[{mark(render_ok)}] 3-D rendering: {render.strip()}\n\n"
+            f"[{mark(cosim_ok)}] Co-simulation: {cosim.strip()}\n"
+        )
+        if render_ok:
+            self.simpanel.view.retry()
+        box = QMessageBox(self)
+        box.setWindowTitle("Diagnostics")
+        box.setIcon(QMessageBox.Information if render_ok and cosim_ok else QMessageBox.Warning)
+        box.setText("All checks passed." if render_ok and cosim_ok else "Some checks failed. Copy the report when asking for help.")
+        box.setDetailedText(report)
+        copy = box.addButton("Copy report", QMessageBox.ActionRole)
+        box.addButton(QMessageBox.Close)
+        box.exec()
+        if box.clickedButton() is copy:
+            QGuiApplication.clipboard().setText(report)
+        self.console.append(report, "sys")
 
     def _open_doc(self, name: str) -> None:
         tc = self.runs.tc

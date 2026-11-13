@@ -42,6 +42,8 @@ class ObjectRenderer(QWidget):
         self._reset_camera()
 
         self._last_mouse: Optional[QPoint] = None
+        self._render_error: Optional[str] = None
+        self._fail_count = 0
 
         self._image_label = QLabel(alignment=Qt.AlignCenter)
         self._image_label.setMinimumSize(640, 480)
@@ -62,7 +64,7 @@ class ObjectRenderer(QWidget):
         self._render_timer.timeout.connect(self.render_once)
 
         # Connect to simulation signals
-        self._simulation.frame_rendered.connect(self._on_frame)
+        # Frames come from our own adaptive timer (render_once); not from the per-step signal.
         self._simulation.model_loaded.connect(self._on_model_loaded)
 
     # ------------------------------------------------------------------
@@ -100,12 +102,37 @@ class ObjectRenderer(QWidget):
                 frame = engine.render(camera=self._mjv_camera)
             if frame is not None:
                 self._display_frame(frame)
-        except Exception:
-            logger.debug("Render failed", exc_info=True)
+                self._fail_count = 0
+                self._render_error = None
+        except Exception as exc:
+            self._fail_count += 1
+            if self._render_error is None:
+                from physics_engine.gl_backend import describe_error
+                self._render_error = describe_error(exc)
+                logger.error("3-D renderer failed: %s", self._render_error, exc_info=True)
+                self._image_label.setPixmap(QPixmap())
+                self._image_label.setWordWrap(True)
+                self._image_label.setText("3-D view unavailable\n\n" + self._render_error +
+                                          "\n\nThe simulation and co-simulation still run; "
+                                          "Help ▸ Diagnostics re-tests rendering.")
+            if self._fail_count >= 3:
+                self._render_timer.stop()   # don't burn the engine lock retrying every 33 ms
+            return
         # Adaptive frame rate: rendering holds the engine lock, so on slow (software) GL
         # back off to keep at most ~1/4 of wall time for drawing and the rest for physics.
         cost_ms = (time.perf_counter() - t0) * 1000
         self._render_timer.setInterval(int(min(500, max(33, 4 * cost_ms))))
+
+    @property
+    def render_error(self) -> Optional[str]:
+        return self._render_error
+
+    def retry(self) -> None:
+        """Forget a previous failure and try again (after a driver/config change)."""
+        self._render_error, self._fail_count = None, 0
+        self.render_once()
+        if self._simulation.engine.is_initialized:
+            self._render_timer.start()
 
     def _on_frame(self, frame: np.ndarray) -> None:
         self._display_frame(frame)

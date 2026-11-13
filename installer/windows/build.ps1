@@ -13,7 +13,7 @@
 #>
 param(
   [string]$TulpaSrc = "..\TulpaLang",
-  [string]$Version  = "2.0.0",
+  [string]$Version  = "2.0.1",
   [switch]$Sign,
   [switch]$Brand,
   [switch]$SkipTulpa
@@ -75,6 +75,13 @@ $env:PYTHONIOENCODING = "utf-8"
 if ($LASTEXITCODE) { throw "bundled doctor failed" }
 & dist\HermiSim\hermisim-cli.exe exec workspace\morty\board\motherboard.rav
 if ($LASTEXITCODE) { throw "bundled smoke test failed" }
+# MuJoCo's Windows renderer is a hidden GLFW window: the DLL must ship inside the bundle.
+if (-not (Get-ChildItem dist\HermiSim\_internal\glfw -Filter "glfw3*.dll" -Recurse -ErrorAction SilentlyContinue)) {
+  throw "glfw3.dll missing from the bundle - the 3-D viewport would not render"
+}
+# Full co-simulation through the frozen app: Morty balancing for 2 s of sim time.
+& dist\HermiSim\hermisim-cli.exe run workspace\morty\main.rav --model models\morty.xml --quiet -- 2
+if ($LASTEXITCODE) { throw "bundled co-simulation failed" }
 
 Step "Inno Setup"
 $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
