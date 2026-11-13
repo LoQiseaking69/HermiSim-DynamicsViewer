@@ -1,0 +1,73 @@
+name: windows-installer
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Installer version (e.g. 2.0.0)"
+        required: false
+        default: "2.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout TulpaLang
+        uses: actions/checkout@v4
+        with:
+          repository: LoQiseaking69/TulpaLang
+          path: TulpaLang
+          # TulpaLang is private: add a fine-grained PAT with read access as TULPA_REPO_TOKEN
+          token: ${{ secrets.TULPA_REPO_TOKEN || github.token }}
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: TulpaLang
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Version
+        id: v
+        shell: pwsh
+        run: |
+          $v = "${{ github.event.inputs.version }}"
+          if ("${{ github.ref_type }}" -eq "tag") { $v = "${{ github.ref_name }}".TrimStart("v") }
+          if (-not $v) { $v = "2.0.0" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build installer
+        shell: pwsh
+        run: installer\windows\build.ps1 -TulpaSrc TulpaLang -Version ${{ steps.v.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HermiSim-Setup-${{ steps.v.outputs.version }}
+          path: |
+            dist/installer/*.exe
+            dist/installer/*.sha256
+
+      - name: Attach to release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/installer/*.exe
+            dist/installer/*.sha256

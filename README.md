@@ -1,185 +1,131 @@
-# HermiSim-DynamicsViewer: A Robotics Simulation Suite
+![HermiSim](assets/logo/hermisim-banner.png)
 
-![HermiSim Logo](HSlogo.jpg)
+# HermiSim: simulation suite & IDE for TulpaLang
 
-## Table of Contents
+HermiSim is an engineering workbench for writing robot software in
+[TulpaLang](https://github.com/LoQiseaking69/TulpaLang) and testing it, all in one window:
+- MuJoCo physics, driven in lock-step from Tulpa programs
+- cycle-accurate RTL models, shown in a waveform viewer
+- boards described as code
+- live telemetry
 
-1.  [Overview](#overview)
-2.  [Features](#features)
-3.  [Directory Structure](#directory-structure)
-4.  [Installation and Usage](#installation-and-usage)
-    -   [Prerequisites](#prerequisites)
-    -   [Local Installation](#local-installation)
-    -   [Running with Docker](#running-with-docker)
-5.  [Running Tests](#running-tests)
-6.  [Continuous Integration/Continuous Deployment (CI/CD)](#continuous-integrationcontinuous-deployment-cicd)
-7.  [Components](#components)
-    -   [`main.py`](#mainpy)
-    -   [GUI Components](#gui-components)
-    -   [Tabs](#tabs)
-    -   [Physics Engine](#physics-engine)
-8.  [Enhancements and Hardening](#enhancements-and-hardening)
-9.  [License](#license)
+The bundled **Morty** project rewrites the
+[Morty bipedal humanoid](https://github.com/LoQiseaking69/Morty) entirely in Tulpa.
 
-## Overview
-
-This Robotics Simulation Suite is a sophisticated application designed for loading MJCF/URDF model files, rendering objects in a 3D space, and running robotic simulations powered by MuJoCo. The application provides multiple tabs and functionalities for a comprehensive simulation environment, with a focus on robustness, maintainability, and production-grade quality.
+![IDE running Morty in the simulator](docs/screenshots/02_cosim.png)
 
 ## Features
 
--   **Load MJCF/URDF Models**: Load `.xml`, `.mjcf`, and `.urdf` model files for simulation.
--   **Interactive 3D Rendering**: Visualise models in an interactive viewport with orbit, pan, and zoom camera controls (MuJoCo offscreen renderer + PySide6).
--   **Physics Engine**: Leverage MuJoCo for realistic rigid-body dynamics.
--   **Bundled Starter Model**: Ships with a complete bipedal robot (`models/starter_model.xml`) loaded automatically on first launch.
--   **Session Persistence**: Remembers the last-loaded model **and** its simulation state (joint positions, velocities, controls, time) across sessions.
--   **Model Builder**: Visual wizard for composing MJCF models from scratch (bodies, joints, actuators, sensors, cameras).
--   **Sensor Data**: Real-time display of joint, actuator, and contact sensor readings.
--   **Simulation Controls**: Start, pause, stop, reset, single-step, and adjustable playback speed / timestep.
--   **Logs and Debugging**: Rotating file + console logging with a dedicated Logs tab.
--   **Modular Design**: Clean separation of GUI, physics engine, and file I/O layers.
--   **Comprehensive Testing**: Unit tests for core modules.
--   **Containerization**: Docker support for reproducible environments.
--   **CI/CD Pipeline**: GitHub Actions for automated builds and tests.
+| | |
+|---|---|
+| **Tulpa editor** | Syntax highlighting, a language-server client (`tulpa lsp`) with live diagnostics, hover, completion and go-to-definition, an outline, find/replace, and multiple tabs. |
+| **Run configurations** | Run, Test (`define_test!`), Verify (contract fuzzing), Build (LLVM native object + header), Bytecode and Diagram. Projects define their own configurations in `hermisim.json`. |
+| **Co-simulation** | *Run in Simulator* starts a MuJoCo session and the program connects with `cosim::connect()`. Each `sim.step(ctrl, n)` applies controls, advances physics and returns an observation: joints, sensors, COM, contacts. You can run as fast as possible or at real time ×N, shove bodies from the UI, and use a free camera. |
+| **Live telemetry** | `tlm::plot("name", v)` streams to pyqtgraph plots. `tlm::status` drives the status bar. `tlm::artifact` links files the program produced. |
+| **Waveform viewer** | Opens VCD files written by `std/rtl` (or Verilog simulators), with zoom, pan, a cursor and signal filtering. |
+| **State-machine diagrams** | Renders every `machine` in the current file. |
+| **BOM / netlist viewer** | Tables for the CSV/JSON that `std/eda` exports. |
+| **Headless CLI** | `python -m tulpa_bridge run prog.rav --model m.xml` (or `hermisim-cli` in the installed build) for CI. |
+| **Classic viewer** | The original model viewer and model-builder wizard are still available with `--classic`. |
 
-## Directory Structure
+<p>
+<img src="docs/screenshots/03_vcd.png" width="49%"> <img src="docs/screenshots/04_machines.png" width="49%">
+</p>
 
-```
-HERMISIM/
-│
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── gui/
-│   ├── styles.py
-│   ├── main_window.py
-│   ├── file_loader.py
-│   ├── object_renderer.py
-│   ├── simulation_controls.py
-│   ├── sensor_data_viewer.py
-│   ├── tabs/
-│   │   ├── render_tab.py
-│   │   ├── simulation_tab.py
-│   │   ├── log_tab.py
-│   │   ├── sensor_tab.py
-│   │   └── model_builder_tab.py
-├── models/
-│   └── starter_model.xml
-├── physics_engine/
-│   ├── engine.py
-│   ├── simulation.py
-│   ├── sensor.py
-│   └── exceptions.py
-├── tests/
-│   ├── test_file_loader.py
-│   ├── test_physics_engine.py
-│   ├── test_sensor.py
-│   └── test_simulation.py
-├── .state/                (generated — persisted simulation state)
-├── Dockerfile
-├── main.py
-├── README.md
-├── requirements.txt
-└── hermisim.log           (generated at runtime)
-```
+## Morty, reimagined in Tulpa
 
-## Installation and Usage
+The original project combined:
+- a ROS node with a PINN and an RL agent written in PyTorch
+- Verilog modules for UART and the FPGA
+- gEDA scripts for the mainboard
 
-### Prerequisites
+The rewrite keeps that architecture. Each piece is now something you can execute and check:
 
--   Python 3.9+
--   pip (Python package installer)
--   Git
--   Docker (for containerized deployment)
+| Original | In Tulpa (`workspace/morty/`) |
+|---|---|
+| `rospinn.py` PINN, whose COM loss was the mean of its own outputs | `lib/pinn.rav` is an `nn::` model of COM dynamics. It is trained online on simulator data plus a residual from the **Linear Inverted Pendulum** physics model (`std/lipm`). It forecasts capture-point margin 0.3 s ahead. |
+| `rospinn.py` RL "loss" `-log_prob.mean()` | `lib/policy.rav` and `train.rav` implement real PPO (`std/rl`, GAE, clipped objective). The policy outputs a residual on top of the controller. |
+| — | `lib/balance.rav` is a capture-point balance controller (PD + ankle/hip strategy). |
+| ROS topics | `std/topics` provides a typed publish/subscribe bus built on Tulpa signals, so `when`/`always` rules can watch topics. |
+| `uart_comm.v`: a 10-bit counter that never reached 10416, and shared TX/RX state | `fpga/governor.rav` is a cycle-accurate RTL torque governor (`std/rtl`). It has 8N1 UART RX/TX, CRC-checked packets, clamp, slew limiting and a watchdog. `fpga/testbench.rav` checks it bit-exactly against `fpga/protocol.rav` and writes a VCD. `fpga/legacy.rav` ports the original CPU, FPGA and UART modules faithfully. |
+| `mortymb.py` gEDA XML | `board/motherboard.rav` describes the board with `std/eda`: ERC, a power budget in watts back through the regulators, a netlist and a BOM with costs. |
+| `main.py` (iverilog + rosrun) | `main.rav` runs the whole stack at 100 Hz: sense, then the 60-feature observation, then the policy, then the balance controller, then an MGP packet to the FPGA governor, then the motors. Safety envelopes and a behaviour state machine sit on top. |
 
-### Local Installation
-
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/LoQiseaking69/HermiSim-DynamicsViewer.git
-    cd HermiSim-DynamicsViewer
-    ```
-
-2.  **Install dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Run the application**:
-    ```bash
-    python main.py
-    ```
-
-### Running with Docker
-
-1.  **Build the Docker image**:
-    ```bash
-    docker build -t hermisim-dynamicsviewer .
-    ```
-
-2.  **Run the Docker container**:
-    ```bash
-    docker run -it --rm --name hermisim-app hermisim-dynamicsviewer
-    ```
-    *Note: Running GUI applications directly in Docker can be complex due to X server forwarding. For development, local installation is recommended. For deployment, consider VNC or X11 forwarding solutions.* 
-
-## Running Tests
-
-To run the unit tests, navigate to the project root directory and execute:
+Run it:
 
 ```bash
-export PYTHONPATH=$PYTHONPATH:$(pwd)
-pytest
+# in the IDE: open the Morty project and pick a run configuration, or headless:
+python -m tulpa_bridge run workspace/morty/main.rav --model models/morty.xml -- 20 hard
+python -m tulpa_bridge run workspace/morty/train.rav --model models/morty.xml -- 40   # PPO
+cd workspace/morty && tulpa fpga/testbench.rav && tulpa board/motherboard.rav && tulpa test tests/morty_test.rav
 ```
 
-## Continuous Integration/Continuous Deployment (CI/CD)
+## Install
 
-The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically builds and tests the application on every push and pull request. It also builds a Docker image of the application.
+### Windows
 
-## Components
+Download `HermiSim-Setup-<version>-x64.exe` from
+[Releases](https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/releases). The installer:
+- bundles the IDE, MuJoCo and the Tulpa toolchain
+- can add `tulpa` to `PATH` and associate `.rav`/`.tlp` files
+- installs per user without admin rights, or for all users
 
-#### `main.py`
--   **Entry Point**: Applies a MuJoCo Windows DLL workaround, configures rotating-file + console logging, and launches the main window.
+Your editable projects go to `Documents\HermiSim`.
 
-#### GUI Components
--   **`styles.py`**: Defines and applies visual styles using PySide6.
--   **`main_window.py`**: Hosts the main window, integrates tabs, manages file loading, auto-loads the last (or default) model on startup, and persists simulation state on exit.
--   **`file_loader.py`**: Validates and loads MJCF/URDF files into the simulation. Tracks the last-loaded model path via `QSettings` and saves/restores simulation state snapshots to disk.
--   **`object_renderer.py`**: Interactive 3D viewport — renders the scene via MuJoCo's offscreen renderer and supports orbit, pan, and zoom with mouse controls.
--   **`simulation_controls.py`**: Transport buttons (start/pause/stop/reset/step), playback speed slider, and timestep editor.
--   **`sensor_data_viewer.py`**: Displays real-time sensor data in a tabular format.
+### From source (Linux, macOS, Windows)
 
-#### Tabs
--   **`render_tab.py`**: Interactive 3D viewport with camera selection dropdown.
--   **`simulation_tab.py`**: Contains simulation transport and speed controls.
--   **`log_tab.py`**: Displays logs and debugging information.
--   **`sensor_tab.py`**: Manages and displays sensor-related data.
--   **`model_builder_tab.py`**: Multi-page wizard for composing MJCF models (bodies, joints, actuators, sensors, cameras) and previewing/exporting the generated XML.
+```bash
+git clone https://github.com/LoQiseaking69/HermiSim-DynamicsViewer.git
+git clone https://github.com/LoQiseaking69/TulpaLang.git
+(cd TulpaLang && cargo build --release)          # HermiSim finds ../TulpaLang/target/release/tulpa
+cd HermiSim-DynamicsViewer
+pip install -r requirements.txt
+python main.py                                   # IDE  (python main.py --classic for the old viewer)
+python -m tulpa_bridge doctor                    # toolchain / MuJoCo check
+```
 
-#### Models
--   **`starter_model.xml`**: Bundled bipedal robot with 2-DOF hips, knees, ankles, 8 actuators, and 32 sensors (joint pos/vel, actuator forces, contact, IMU).
+You can point HermiSim at a specific toolchain with `TULPA_BIN`, or under *Settings ▸ Tulpa Toolchain*.
 
-#### Physics Engine
--   **`engine.py`**: Thread-safe MuJoCo wrapper providing model loading, stepping, rendering (with interactive `MjvCamera` support), state snapshot/restore, body/joint/sensor queries, and force application.
--   **`simulation.py`**: Qt-based state machine (idle/running/paused/error) managing a background worker thread for real-time physics stepping, with signals for state changes, sensor data, and rendered frames.
--   **`sensor.py`**: Sensor simulation utilities.
--   **`exceptions.py`**: Custom exception types (`ModelLoadError`, `EngineNotInitializedError`).
+### Building the Windows installer
 
-## Enhancements and Hardening
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.0.0
+```
 
-This version includes several key improvements:
+The script:
+1. builds Tulpa and the VS Code extension
+2. stages the toolchain
+3. renders the brand assets
+4. builds the PyInstaller bundle (`installer/hermisim.spec`) and smoke-tests it
+5. compiles `installer/windows/hermisim.iss` with Inno Setup 6
 
--   **MuJoCo Backend**: Migrated from PyBullet to MuJoCo for higher-fidelity rigid-body dynamics and native MJCF support.
--   **PySide6 UI**: Modern Qt 6 interface with dark theme, tab-based layout, and interactive 3D viewport.
--   **Interactive Camera Controls**: Orbit (left-drag), pan (middle-drag / Shift+left), and zoom (scroll / right-drag) directly in the Render tab.
--   **Bundled Bipedal Robot**: A complete starter model (`models/starter_model.xml`) with torso, legs, actuators, and 32 sensors — loaded automatically on first launch.
--   **Session Persistence**: The last-loaded model path is saved via `QSettings`, and the full simulation state (qpos, qvel, ctrl, time) is serialised to `.state/last_state.npz` on exit and restored on next launch.
--   **Model Builder Wizard**: Multi-page GUI for composing MJCF models without hand-editing XML.
--   **Centralized Logging**: Rotating file handler (5 MB, 3 backups) + console output with timestamped format.
--   **Thread-Safe Engine**: All `PhysicsEngine` methods are guarded by a reentrant lock; simulation runs on a dedicated `QThread`.
--   **Unit Testing**: `pytest` + `unittest.mock` tests for file loading, engine, simulation, and sensors.
--   **Containerization**: Dockerfile for reproducible builds.
--   **CI/CD**: GitHub Actions workflow for automated testing on push/PR.
+The `windows-installer` GitHub workflow does the same on every `v*` tag and attaches the
+installer to the release. TulpaLang is private, so the workflow needs a `TULPA_REPO_TOKEN`
+secret with read access to it.
+
+## Layout
+
+```
+main.py                IDE entry (also `run`/`exec`/`doctor` CLI subcommands)
+gui/ide/               IDE: window, editor, LSP-aware panels, plots, VCD and machine viewers, run manager
+gui/                   classic viewer, renderer, model builder
+physics_engine/        thread-safe MuJoCo engine + simulation state machine
+tulpa_bridge/          toolchain discovery, co-sim server (JSON-lines over TCP), runner, LSP client
+models/                morty.xml (18-actuator humanoid), starter_model.xml
+workspace/morty/       Morty in Tulpa
+assets/logo/           ghost-raven mark (SVG source + rendered PNG/ICO)
+installer/             PyInstaller spec, Inno Setup script, build script, wizard art
+tools/                 brand-asset renderer, headless IDE smoke test
+tests/                 pytest: engine, file loader, telemetry/VCD, Tulpa co-sim end-to-end
+```
+
+## Tests
+
+```bash
+pytest                                                      # Tulpa-dependent tests skip if no toolchain
+QT_QPA_PLATFORM=offscreen MUJOCO_GL=egl python tools/ide_smoke.py screens/   # IDE screenshots
+```
 
 ## License
 
-This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICENSE) file for details.
+BSD 3-Clause. See [LICENSE](LICENSE).
