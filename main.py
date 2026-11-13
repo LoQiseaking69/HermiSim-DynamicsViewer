@@ -1,7 +1,9 @@
-"""HermiSim Dynamics Viewer — application entry point.
+"""HermiSim — simulation suite and IDE for TulpaLang.
 
-Applies a MuJoCo Windows DLL workaround, configures logging, and launches
-the main window.
+    python main.py                      # IDE (default)
+    python main.py workspace/morty      # open a project
+    python main.py --classic            # the original tabbed dynamics viewer
+    python -m tulpa_bridge run FILE.rav --model MODEL.xml   # headless co-simulation
 """
 
 from __future__ import annotations
@@ -13,85 +15,78 @@ import pathlib
 import sys
 from logging.handlers import RotatingFileHandler
 
-
-# ---------------------------------------------------------------------------
-# MuJoCo Windows plugin-directory workaround
-# ---------------------------------------------------------------------------
-# On Windows MuJoCo may fail to load unrelated plugin DLLs at import time.
-# Temporarily renaming the directory sidesteps the issue.
-
-_mujoco_spec = importlib.util.find_spec("mujoco")
-_plugin_dir: pathlib.Path | None = None
-_plugin_disabled: pathlib.Path | None = None
-
-if _mujoco_spec and _mujoco_spec.origin:
-    _pkg_dir = pathlib.Path(_mujoco_spec.origin).resolve().parent
-    _plugin_dir = _pkg_dir / "plugin"
-    _plugin_disabled = _pkg_dir / "_plugin_disabled"
-    if _plugin_dir.is_dir():
+# MuJoCo on Windows may fail to load unrelated plugin DLLs at import time; hide them briefly.
+_spec = importlib.util.find_spec("mujoco")
+if _spec and _spec.origin and os.name == "nt":
+    _pkg = pathlib.Path(_spec.origin).resolve().parent
+    _plugin, _off = _pkg / "plugin", _pkg / "_plugin_disabled"
+    if _plugin.is_dir():
         try:
-            _plugin_dir.rename(_plugin_disabled)
+            _plugin.rename(_off)
         except OSError:
-            pass  # Already renamed or permissions issue
+            pass
+    import mujoco  # noqa: E402,F401
+    if _off.is_dir():
+        try:
+            _off.rename(_plugin)
+        except OSError:
+            pass
+else:
+    import mujoco  # noqa: E402,F401
 
-import mujoco  # noqa: E402  (must come after the rename)
 
-if _plugin_disabled is not None and _plugin_disabled.is_dir():
-    try:
-        _plugin_disabled.rename(_plugin_dir)
-    except OSError:
-        pass
+def _data_dir() -> pathlib.Path:
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_STATE_HOME") or str(pathlib.Path.home() / ".local" / "state")
+    d = pathlib.Path(base) / "HermiSim"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 
 def _configure_logging() -> None:
-    """Set up root logger with console + rotating file handlers."""
-    log_dir = pathlib.Path(__file__).resolve().parent
-    log_path = log_dir / "hermisim.log"
-
-    fmt = logging.Formatter(
-        "%(asctime)s | %(name)-28s | %(levelname)-7s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    file_handler = RotatingFileHandler(
-        log_path, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
-    )
-    file_handler.setFormatter(fmt)
-
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(fmt)
-
+    fmt = logging.Formatter("%(asctime)s | %(name)-28s | %(levelname)-7s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     root = logging.getLogger()
     root.setLevel(logging.INFO)
-    root.addHandler(file_handler)
-    root.addHandler(console_handler)
+    try:
+        fh = RotatingFileHandler(_data_dir() / "hermisim.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+        fh.setFormatter(fmt)
+        root.addHandler(fh)
+    except OSError:
+        pass
+    if sys.stdout is not None:
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setFormatter(fmt)
+        root.addHandler(ch)
 
-
-# ---------------------------------------------------------------------------
-# Application entry point
-# ---------------------------------------------------------------------------
 
 def main() -> None:
+    # Headless co-simulation CLI: `HermiSim run prog.rav --model m.xml` / `hermisim-cli exec prog.rav`
+    if len(sys.argv) > 1 and sys.argv[1] in ("run", "exec", "doctor"):
+        from tulpa_bridge.runner import main as cli_main
+        sys.exit(cli_main(sys.argv[1:]))
     _configure_logging()
-    logger = logging.getLogger(__name__)
-
-    # PySide6 must be imported after mujoco on Windows
     from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QIcon
 
-    from gui.main_window import MainWindow
-    from gui.styles import apply_styles
-
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
     app = QApplication(sys.argv)
-    apply_styles(app)
+    app.setApplicationName("HermiSim")
+    app.setOrganizationName("HermiTech")
+    icon = pathlib.Path(__file__).resolve().parent / "assets" / "logo" / "hermisim.ico"
+    if icon.exists():
+        app.setWindowIcon(QIcon(str(icon)))
 
-    window = MainWindow()
+    if "--classic" in sys.argv:
+        from gui.main_window import MainWindow
+        from gui.styles import apply_styles
+        apply_styles(app)
+        window = MainWindow()
+    else:
+        from gui.ide import theme
+        from gui.ide.window import IdeWindow
+        theme.apply(app)
+        window = IdeWindow(project=args[0] if args else None)
     window.show()
-    logger.info("HermiSim Dynamics Viewer started")
-
+    logging.getLogger(__name__).info("HermiSim started")
     sys.exit(app.exec())
 
 

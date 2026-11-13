@@ -18,6 +18,9 @@ _SUPPORTED_EXTENSIONS = {".urdf", ".xml", ".mjcf"}
 _SETTINGS_KEY = "files/last_model_path"
 _DEFAULT_MODEL = Path(__file__).resolve().parent.parent / "models" / "starter_model.xml"
 _STATE_DIR = Path(__file__).resolve().parent.parent / ".state"
+if getattr(__import__("sys"), "frozen", False):
+    import os as _os
+    _STATE_DIR = Path(_os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "state") / "HermiSim" / "state"
 
 
 class FileLoader:

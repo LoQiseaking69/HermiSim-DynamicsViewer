@@ -124,6 +124,7 @@ class Simulation(QObject):
         self._worker: Optional[_SimulationWorker] = None
         self._speed: float = 1.0
         self._render_enabled: bool = True
+        self.model_path: Optional[str] = None
 
     # ------------------------------------------------------------------
     # Properties
@@ -151,6 +152,7 @@ class Simulation(QObject):
         if self._state == SimulationState.RUNNING:
             self.stop()
         self.engine.load_model_from_path(path)
+        self.model_path = path
         info = self.engine.get_model_info()
         self._set_state(SimulationState.IDLE)
         self.model_loaded.emit(info)

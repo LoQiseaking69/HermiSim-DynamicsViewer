@@ -88,9 +88,11 @@ class ObjectRenderer(QWidget):
 
     def render_once(self) -> None:
         """Force a single render outside of the simulation loop."""
+        import time
         engine = self._simulation.engine
-        if not engine.is_initialized:
+        if not engine.is_initialized or not self.isVisible():
             return
+        t0 = time.perf_counter()
         try:
             if self._camera_name is not None:
                 frame = engine.render(camera_name=self._camera_name)
@@ -100,6 +102,10 @@ class ObjectRenderer(QWidget):
                 self._display_frame(frame)
         except Exception:
             logger.debug("Render failed", exc_info=True)
+        # Adaptive frame rate: rendering holds the engine lock, so on slow (software) GL
+        # back off to keep at most ~1/4 of wall time for drawing and the rest for physics.
+        cost_ms = (time.perf_counter() - t0) * 1000
+        self._render_timer.setInterval(int(min(500, max(33, 4 * cost_ms))))
 
     def _on_frame(self, frame: np.ndarray) -> None:
         self._display_frame(frame)
