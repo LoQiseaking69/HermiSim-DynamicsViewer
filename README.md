@@ -67,13 +67,14 @@ cd workspace/morty && tulpa fpga/testbench.rav && tulpa board/motherboard.rav &&
 
 ### Windows
 
-Download `HermiSim-Setup-<version>-x64.exe` from
-[Releases](https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/releases). The installer:
+**[⬇ Download the latest installer](https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/releases/latest)**:
+`HermiSim-Setup-<version>-x64.exe`. The installer:
 - bundles the IDE, MuJoCo and the Tulpa toolchain
 - can add `tulpa` to `PATH` and associate `.rav`/`.tlp` files
 - installs per user without admin rights, or for all users
 
-Your editable projects go to `Documents\HermiSim`.
+Your editable projects go to `Documents\HermiSim`. Each release lists its SHA-256 checksum and
+whether it is code-signed; see [code signing](installer/windows/SIGNING.md).
 
 ### From source (Linux, macOS, Windows)
 
@@ -102,8 +103,9 @@ The script:
 4. builds the PyInstaller bundle (`installer/hermisim.spec`) and smoke-tests it
 5. compiles `installer/windows/hermisim.iss` with Inno Setup 6
 
-The `windows-installer` GitHub workflow does the same on every `v*` tag and attaches the
-installer to the release. TulpaLang is private, so the workflow needs a `TULPA_REPO_TOKEN`
+The `windows-installer` GitHub workflow does the same on every `v*` tag, or from *Run workflow*
+with *publish* ticked. It signs the installer with Microsoft Artifact Signing once that is set
+up ([SIGNING.md](installer/windows/SIGNING.md)), then publishes it to the Releases page. TulpaLang is private, so the workflow needs a `TULPA_REPO_TOKEN`
 secret with read access to it.
 
 ## Layout

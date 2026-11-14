@@ -9,7 +9,11 @@
 
 .NOTES
   Needs: Rust (cargo), Python 3.10+, Inno Setup 6 (iscc on PATH or default install dir).
-  Optional: Node + npx (to package the VS Code extension), signtool for -Sign.
+  Optional: Node + npx (to package the VS Code extension).
+
+  -Sign signs HermiSim.exe, hermisim-cli.exe, tulpa.exe, the setup executable and its uninstaller
+  with Microsoft Artifact Signing (see installer\windows\sign.ps1 for the required
+  ARTIFACT_SIGNING_* variables and Azure login). -Sign is implied when HERMISIM_SIGN=1.
 #>
 param(
   [string]$TulpaSrc = "..\TulpaLang",
@@ -19,6 +23,7 @@ param(
   [switch]$SkipTulpa
 )
 $ErrorActionPreference = "Stop"
+if ($env:HERMISIM_SIGN -eq "1") { $Sign = $true }
 $Root = Resolve-Path "$PSScriptRoot\..\.."
 Set-Location $Root
 
@@ -83,13 +88,33 @@ if (-not (Get-ChildItem dist\HermiSim\_internal\glfw -Filter "glfw3*.dll" -Recur
 & dist\HermiSim\hermisim-cli.exe run workspace\morty\main.rav --model models\morty.xml --quiet -- 2
 if ($LASTEXITCODE) { throw "bundled co-simulation failed" }
 
+$SignScript = Join-Path $PSScriptRoot "sign.ps1"
+if ($Sign) {
+  Step "Signing bundled executables (Artifact Signing)"
+  & $SignScript dist\HermiSim\HermiSim.exe dist\HermiSim\hermisim-cli.exe dist\HermiSim\_internal\toolchain\bin\tulpa.exe
+  if ($LASTEXITCODE) { throw "signing the bundle failed" }
+}
+
 Step "Inno Setup"
 $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
 if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
 $isccArgs = @("/DAppVersion=$Version")
-if ($Sign) { $isccArgs += '/DSignTool=signtool' ; $isccArgs += '/Ssigntool=signtool sign /fd sha256 /tr http://timestamp.digicert.com /td sha256 /a $f' }
+if ($Sign) {
+  # Inno calls this for the setup executable and the embedded uninstaller ($f = file to sign).
+  $isccArgs += "/DSignTool=artifactsign"
+  $isccArgs += "/Sartifactsign=powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$SignScript`" `$f"
+}
 & $iscc @isccArgs installer\windows\hermisim.iss
 if ($LASTEXITCODE) { throw "iscc failed" }
+
+if ($Sign) {
+  Step "Verifying signatures"
+  $st = Get-ChildItem build\signing -Recurse -Filter signtool.exe | Where-Object { $_.FullName -match "\\x64\\" } | Select-Object -First 1
+  Get-ChildItem dist\installer\*.exe | ForEach-Object {
+    & $st.FullName verify /pa /v $_.FullName | Select-String "Issued to|Signing Certificate Chain|Successfully verified"
+    if ($LASTEXITCODE) { throw "installer signature does not verify: $($_.Name)" }
+  }
+}
 
 Get-ChildItem dist\installer\*.exe | ForEach-Object {
   $h = (Get-FileHash $_ -Algorithm SHA256).Hash
