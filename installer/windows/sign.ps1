@@ -6,7 +6,7 @@
   Used three ways:
     * by build.ps1 for the bundled executables (HermiSim.exe, hermisim-cli.exe, tulpa.exe)
     * by Inno Setup as its SignTool, for the setup executable and its uninstaller
-    * by hand:  powershell -File installer\windows\sign.ps1 dist\installer\HermiSim-Setup-2.0.3-x64.exe
+    * by hand:  powershell -File installer\windows\sign.ps1 dist\installer\HermiSim-Setup-2.1.0-x64.exe
 
   Configuration comes from the environment:
     ARTIFACT_SIGNING_ENDPOINT   e.g. https://eus.codesigning.azure.net   (region of your account)

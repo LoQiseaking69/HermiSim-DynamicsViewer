@@ -75,3 +75,43 @@ def test_render_error_hints():
     from physics_engine.gl_backend import describe_error
     msg = describe_error(ImportError("Failed to load GLFW3 shared library."))
     assert "GLFW library is missing" in msg
+
+
+@needs_tulpa
+def test_native_targets_listed():
+    names = [n for n, _ in toolchain.native_targets(TC)]
+    if not names:
+        pytest.skip("toolchain older than Tulpa 3.3")
+    for t in ("sim", "rp2040", "esp32", "esp32c3"):
+        assert t in names
+
+
+@needs_tulpa
+def test_run_natively_and_firmware_kinds(tmp_path, qtbot):
+    """The IDE's Run Natively kind builds a sim executable and runs it; Build Firmware cross-compiles."""
+    import shutil
+    if not toolchain.native_targets(TC) or shutil.which("clang") is None:
+        pytest.skip("needs Tulpa 3.3+ and clang")
+    from gui.ide.run_manager import RunConfig, RunManager
+    src = tmp_path / "blink.rav"
+    src.write_text(
+        "struct Led { pin: GPIO\n  n: int = 0\n  fn blink(self) { self.pin.toggle(); self.n = self.n + 1 } }\n"
+        "let led = Led(GPIO::new(25))\n"
+        "every!(10[ms], 3, { led.blink() })\n"
+        "print(\"blinks\", led.n, led.pin.read())\n"
+    )
+    rm = RunManager(simulation=None)
+    rm.tc = TC
+    out: list[str] = []
+    rm.stdout.connect(out.append)
+    with qtbot.waitSignal(rm.finished, timeout=120_000) as blocker:
+        assert rm.start(RunConfig(name="n", kind="native", file=str(src), cwd=str(tmp_path)))
+    assert blocker.args[0] == 0, out
+    assert "blinks 3 1" in out
+    assert toolchain.native_exe_name(src).is_file()
+
+    with qtbot.waitSignal(rm.finished, timeout=120_000) as blocker:
+        assert rm.start(RunConfig(name="f", kind="firmware", file=str(src), cwd=str(tmp_path), target="rp2040"))
+    assert blocker.args[0] == 0
+    obj = tmp_path / "blink-rp2040.o"
+    assert obj.read_bytes()[:4] == b"\x7fELF"

@@ -30,8 +30,11 @@ class TulpaProcess:
                  env: Optional[dict] = None,
                  on_stdout: Optional[Callable[[str], None]] = None,
                  on_stderr: Optional[Callable[[str], None]] = None,
-                 on_telemetry: Optional[Callable[[dict], None]] = None) -> None:
-        self.tc, self.args, self.cwd = tc, args, cwd
+                 on_telemetry: Optional[Callable[[dict], None]] = None,
+                 program: Optional[str] = None) -> None:
+        # `program` runs another executable (e.g. one `tulpa build --exe` produced) with the
+        # toolchain's environment; by default the process is `tulpa` itself.
+        self.tc, self.args, self.cwd, self.program = tc, args, cwd, program
         self.env = tc.env({"TULPA_TELEMETRY": "1", **(env or {})})
         self.on_stdout = on_stdout or (lambda s: print(s, flush=True))
         self.on_stderr = on_stderr or (lambda s: print(s, file=sys.stderr, flush=True))
@@ -40,7 +43,8 @@ class TulpaProcess:
 
     def start(self) -> "TulpaProcess":
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        self.proc = subprocess.Popen(self.tc.cmd(*self.args), cwd=self.cwd, env=self.env,
+        cmd = [self.program, *self.args] if self.program else self.tc.cmd(*self.args)
+        self.proc = subprocess.Popen(cmd, cwd=self.cwd, env=self.env,
                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                      text=True, encoding="utf-8", errors="replace", bufsize=1,
                                      creationflags=flags)

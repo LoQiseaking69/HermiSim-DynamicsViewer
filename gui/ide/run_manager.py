@@ -23,6 +23,8 @@ KINDS = {
     "verify": "Verify Contracts",
     "check": "Check Syntax",
     "build": "Build Native (LLVM)",
+    "native": "Run Natively (LLVM executable)",
+    "firmware": "Build Firmware",
     "bytecode": "Show Bytecode",
 }
 
@@ -36,6 +38,7 @@ class RunConfig:
     realtime: float = 1.0
     model: Optional[str] = None
     cwd: Optional[str] = None
+    target: Optional[str] = None      # native target for kind "firmware" (rp2040, esp32c3, ...)
 
 
 class RunManager(QObject):
@@ -92,6 +95,14 @@ class RunManager(QObject):
         elif cfg.kind == "build":
             out = path.with_suffix(".o")
             argv = ["build", str(path), "-o", str(out)]
+        elif cfg.kind == "native":
+            # compile the whole program to a host executable on the simulated bus, then run it
+            exe = toolchain.native_exe_name(path)
+            argv = ["build", str(path), "--target", "sim", "--exe", "-o", str(exe)]
+        elif cfg.kind == "firmware":
+            target = cfg.target or "rp2040"
+            out = path.with_name(f"{path.stem}-{target}.o")
+            argv = ["build", str(path), "--target", target, "-o", str(out)]
         elif cfg.kind == "cosim":
             if cfg.model:
                 try:
@@ -121,7 +132,8 @@ class RunManager(QObject):
                                  on_telemetry=self.telemetry.emit)
         self._t0 = time.time()
         self.proc.start()
-        self.started.emit(f"{KINDS.get(cfg.kind, cfg.kind)}: {path.name} {' '.join(cfg.args)}".strip())
+        label = KINDS.get(cfg.kind, cfg.kind) + (f" ({cfg.target})" if cfg.kind == "firmware" and cfg.target else "")
+        self.started.emit(f"{label}: {path.name} {' '.join(cfg.args)}".strip())
         import threading
         threading.Thread(target=self._wait, daemon=True).start()
         return True
@@ -130,6 +142,16 @@ class RunManager(QObject):
         proc = self.proc
         code = proc.wait() if proc else -1
         time.sleep(0.05)                       # let stdout pumps drain
+        cfg = self.last_config
+        if code == 0 and cfg is not None and cfg.kind == "native" and proc is not None and proc.program is None:
+            exe = toolchain.native_exe_name(Path(cfg.file).resolve())
+            self.stdout.emit(f"── running {exe.name}")
+            self.proc = TulpaProcess(proc.tc, list(cfg.args), cwd=proc.cwd, program=str(exe),
+                                     on_stdout=self.stdout.emit, on_stderr=self.stderr.emit,
+                                     on_telemetry=self.telemetry.emit)
+            self.proc.start()
+            code = self.proc.wait()
+            time.sleep(0.05)
         if self.server is not None:
             try:
                 self.server.stop()

@@ -22,7 +22,8 @@ The bundled **Morty** project rewrites the
 |---|---|
 | **Tulpa editor** | Syntax highlighting, a language-server client (`tulpa lsp`) with live diagnostics, hover, completion and go-to-definition, an outline, find/replace, and multiple tabs. |
 | **Tulpa terminal** | A live `tulpa` REPL docked beside the console. `$ check main.rav` runs tulpa commands, `! cmd` runs shell commands, Ctrl+Enter sends the editor selection. |
-| **Run configurations** | Run, Test (`define_test!`), Verify (contract fuzzing), Build (LLVM native object + header), Bytecode and Diagram. Projects define their own configurations in `hermisim.json`. |
+| **Run configurations** | Run, Test (`define_test!`), Verify (contract fuzzing), Build (LLVM native object + header), Run Natively, Build Firmware, Bytecode and Diagram. Projects define their own configurations in `hermisim.json`. |
+| **Native & firmware (Tulpa 3.3)** | **Run ▸ Run Natively** (Ctrl+Shift+F5) compiles the whole program with `tulpa build --target sim --exe` and runs the executable. Use it to check that native output matches the interpreter. **Run ▸ Build Firmware for Board…** (Ctrl+Shift+B) builds for RP2040, ESP32, ESP32-S2/S3/C3/C6, Cortex-M or RISC-V. **Run ▸ New Firmware Project…** scaffolds a Pico SDK or ESP-IDF project with `tulpa new` and opens it. Driver SDK code (`interface`, `impl`, `std/driver`, `std/drivers/*`) is highlighted and documented under Help. |
 | **Co-simulation** | One ▶ Run button runs the selected target (the current file or a project configuration); programs that call `cosim::connect()` start a MuJoCo session automatically. Each `sim.step(ctrl, n)` applies controls, advances physics and returns an observation: joints, sensors, COM, contacts. You can run as fast as possible or at real time ×N and shove bodies from the UI. The viewport shows the floor stage even before a model loads, and frames each model automatically (double-click or ⌖ Frame to re-frame). |
 | **Live telemetry** | `tlm::plot("name", v)` streams to pyqtgraph plots. `tlm::status` drives the status bar. `tlm::artifact` links files the program produced. |
 | **Waveform viewer** | Opens VCD files written by `std/rtl` (or Verilog simulators), with zoom, pan, a cursor and signal filtering. |
@@ -72,6 +73,10 @@ cd workspace/morty && tulpa fpga/testbench.rav && tulpa board/motherboard.rav &&
 - bundles the IDE, MuJoCo and the Tulpa toolchain
 - can add `tulpa` to `PATH` and associate `.rav`/`.tlp` files
 - installs per user without admin rights, or for all users
+
+**Run Natively** and **Build Firmware** also need clang 14 or newer on `PATH`
+(`winget install LLVM.LLVM`). Linking firmware also needs the board's SDK: the Pico SDK for
+RP2040, or ESP-IDF 5.x for the ESP32 family.
 
 Your editable projects go to `Documents\HermiSim`. Each release lists its SHA-256 checksum and
 whether it is code-signed; see [code signing](installer/windows/SIGNING.md).

@@ -92,3 +92,24 @@ def project_root(script: "str | Path") -> Path:
         if (d / "hermisim.json").is_file():
             return d
     return p.parent
+
+
+def native_targets(tc: Toolchain) -> list[tuple[str, str]]:
+    """`tulpa targets` as (name, description) pairs; empty for toolchains older than 3.3."""
+    try:
+        r = tc.run("targets", timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if r.returncode != 0:
+        return []
+    out = []
+    for line in r.stdout.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2:
+            out.append((parts[0], parts[1]))
+    return out
+
+
+def native_exe_name(source: Path) -> Path:
+    """Where Run Natively puts the executable for ``source``."""
+    return source.with_name(source.stem + ("-native.exe" if os.name == "nt" else "-native"))

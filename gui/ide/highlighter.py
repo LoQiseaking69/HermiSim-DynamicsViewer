@@ -22,7 +22,7 @@ def _fmt(color: str, bold: bool = False, italic: bool = False) -> QTextCharForma
 S = theme.SYN
 KEYWORDS = r"\b(if|elif|else|while|for|in|loop|break|continue|return|match|try|catch|spawn|await|after|within|enter|exit|on|state)\b"
 CONTRACTS = r"\b(require|ensure|invariant|assert|always|when)\b"
-STORAGE = r"\b(fn|def|let|const|mut|struct|machine|use|import|from|as)\b"
+STORAGE = r"\b(fn|def|let|const|mut|struct|machine|interface|impl|use|import|from|as)\b"
 LOGIC = r"\b(and|or|not)\b"
 CONST = r"\b(true|false|nil|self|PI|TAU|E|HIGH|LOW|ARGS)\b"
 DEVICES = r"\b(GPIO|I2C|SPI|UART|PWM|Servo|PID|CAN|BLE)\b"
@@ -37,7 +37,7 @@ RULES: list[tuple[re.Pattern, QTextCharFormat, int]] = [
     (re.compile(CONST), _fmt(S["constant"]), 0),
     (re.compile(DEVICES), _fmt(S["device"], bold=True), 0),
     (re.compile(TYPES), _fmt(S["type"]), 0),
-    (re.compile(r"\b(fn|def|struct|machine)\s+([A-Za-z_]\w*)"), _fmt(S["function"], bold=True), 2),
+    (re.compile(r"\b(fn|def|struct|machine|interface)\s+([A-Za-z_]\w*)"), _fmt(S["function"], bold=True), 2),
     (re.compile(r"=>\s*([A-Z]\w*)"), _fmt(S["state"]), 1),
     (re.compile(r"^\s*state\s+([A-Za-z_]\w*)"), _fmt(S["state"], bold=True), 1),
     (re.compile(r"\b([A-Za-z_]\w*)::([A-Za-z_]\w*)"), _fmt(S["path"]), 0),

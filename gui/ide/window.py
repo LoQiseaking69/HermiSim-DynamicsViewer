@@ -353,6 +353,11 @@ class IdeWindow(QMainWindow):
         self._act(r, "Verify Contracts (fuzz)", lambda: self.run_kind("verify"), "Ctrl+Shift+V")
         self._act(r, "Check Syntax", lambda: self.run_kind("check"))
         self._act(r, "Build Native (LLVM .o + .h)", lambda: self.run_kind("build"), "Ctrl+B")
+        self._act(r, "Run Natively (LLVM executable)", lambda: self.run_kind("native"), "Ctrl+Shift+F5",
+                  tip="Compile the whole program with tulpa build --target sim --exe and run it")
+        self._act(r, "Build Firmware for Board…", self.build_firmware, "Ctrl+Shift+B",
+                  tip="tulpa build --target rp2040 / esp32 / esp32c3 / …")
+        self._act(r, "New Firmware Project…", self.new_firmware_project)
         self._act(r, "Show Bytecode", lambda: self.run_kind("bytecode"))
         self._act(r, "State Machine Diagrams", self.show_machines, "Ctrl+Shift+G")
         r.addSeparator()
@@ -379,6 +384,8 @@ class IdeWindow(QMainWindow):
         h = mb.addMenu("&Help")
         self._act(h, "Tulpa Language Guide", lambda: self._open_doc("language_guide.md"))
         self._act(h, "Tulpa Libraries (nn, rl, rtl, eda, …)", lambda: self._open_doc("libraries.md"))
+        self._act(h, "Driver SDK", lambda: self._open_doc("drivers.md"))
+        self._act(h, "Native && Embedded Targets", lambda: self._open_doc("embedded.md"))
         self._act(h, "Diagnostics (toolchain, 3-D, co-sim)…", self.doctor)
         self._act(h, "About HermiSim", self.about)
 
@@ -395,7 +402,7 @@ class IdeWindow(QMainWindow):
             tb.addAction(act)
             tb.widgetForAction(act).setObjectName(name)
         tb.addSeparator()
-        for label, kind in [("Test", "test"), ("Verify", "verify"), ("Build", "build")]:
+        for label, kind in [("Test", "test"), ("Verify", "verify"), ("Build", "build"), ("Native", "native")]:
             b = QToolButton(text=label)
             b.clicked.connect(lambda _=False, k=kind: self.run_kind(k))
             tb.addWidget(b)
@@ -543,7 +550,7 @@ class IdeWindow(QMainWindow):
         base = Path(self.project_dir or ".")
         for c in self.project.get("run_configurations", []):
             cfg = RunConfig(name=c["name"], kind=c.get("kind", "run"), file=str(base / c["file"]),
-                            args=c.get("args", []), realtime=c.get("realtime", 1.0),
+                            args=c.get("args", []), realtime=c.get("realtime", 1.0), target=c.get("target"),
                             model=str((base / self.project["model"]).resolve()) if self.project.get("model") else None,
                             cwd=str(base))
             self.config_combo.addItem(cfg.name, cfg)
@@ -732,7 +739,55 @@ class IdeWindow(QMainWindow):
         self.speed_lbl.setText("max" if v == 0 else f"{rt:.1f}×")
         self.runs.set_speed(rt)
 
-    def run_kind(self, kind: str) -> None:
+    def _board_choices(self) -> list[tuple[str, str]]:
+        tc = self.runs.ensure_toolchain()
+        boards = toolchain.native_targets(tc) if tc else []
+        if not boards:
+            self.console.append("this Tulpa toolchain has no embedded targets — update it to 3.3 or newer", "err")
+        return boards
+
+    def _pick_board(self, title: str, boards: list[tuple[str, str]], exclude=()) -> Optional[str]:
+        items = [f"{n}  —  {d}" for n, d in boards if n not in exclude]
+        names = [n for n, _ in boards if n not in exclude]
+        last = self.settings.value("firmware/target", "rp2040")
+        cur = names.index(last) if last in names else 0
+        item, ok = QInputDialog.getItem(self, title, "Target:", items, cur, False)
+        if not ok:
+            return None
+        name = names[items.index(item)]
+        self.settings.setValue("firmware/target", name)
+        return name
+
+    def build_firmware(self) -> None:
+        boards = self._board_choices()
+        if not boards:
+            return
+        target = self._pick_board("Build firmware", boards, exclude=("sim", "linux"))
+        if target:
+            self.run_kind("firmware", target=target)
+
+    def new_firmware_project(self) -> None:
+        boards = self._board_choices()
+        if not boards:
+            return
+        board = self._pick_board("New firmware project", boards, exclude=("sim", "cortex-m0", "cortex-m4f", "riscv32"))
+        if not board:
+            return
+        d = QFileDialog.getExistingDirectory(self, "Create the project inside…", self.project_dir or str(Path.home()))
+        if not d:
+            return
+        name, ok = QInputDialog.getText(self, "New firmware project", "Project name:", text=f"{board}-app")
+        if not ok or not name.strip():
+            return
+        dest = Path(d) / name.strip()
+        r = self.runs.tc.run("new", str(dest), "--board", board)
+        self.console.append((r.stdout + r.stderr).strip(), "sys" if r.returncode == 0 else "err")
+        if r.returncode == 0:
+            self.open_project(str(dest))
+            if (dest / "app.rav").is_file():
+                self.open_file(str(dest / "app.rav"))
+
+    def run_kind(self, kind: str, target: Optional[str] = None) -> None:
         ed = self.editor()
         if ed is None:
             self.console.append("open a .rav file first", "warn")
@@ -742,7 +797,7 @@ class IdeWindow(QMainWindow):
                 return
         args = []
         matched: Optional[RunConfig] = None
-        if kind in ("run", "cosim"):
+        if kind in ("run", "cosim", "native"):
             # reuse the args of a matching run configuration, if any
             for i in range(self.config_combo.count()):
                 c: Optional[RunConfig] = self.config_combo.itemData(i)
@@ -763,7 +818,7 @@ class IdeWindow(QMainWindow):
         if self.project_dir and Path(ed.path).resolve().is_relative_to(Path(self.project_dir).resolve()):
             cwd = self.project_dir          # project programs run from the project root (out/, weights/)
         self.start(RunConfig(name=kind, kind=kind, file=ed.path, args=args, realtime=self.speed.value() / 10.0,
-                             model=model, cwd=cwd))
+                             model=model, cwd=cwd, target=target))
 
     def _focus_terminal(self) -> None:
         self.d_terminal.show()
