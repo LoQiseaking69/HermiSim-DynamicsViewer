@@ -98,7 +98,7 @@ You can point HermiSim at a specific toolchain with `TULPA_BIN`, or under *Setti
 ### Building the Windows installer
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.0.0
+powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.1.0
 ```
 
 The script:
@@ -126,7 +126,7 @@ workspace/morty/       Morty in Tulpa
 assets/logo/           ghost-raven mark (SVG source + rendered PNG/ICO)
 installer/             PyInstaller spec, Inno Setup script, build script, wizard art
 tools/                 brand-asset renderer, headless IDE smoke test
-tests/                 pytest: engine, file loader, telemetry/VCD, Tulpa co-sim end-to-end
+tests/                 pytest: engine, file loader, telemetry/VCD, Tulpa co-sim end-to-end, native/firmware run kinds
 ```
 
 ## Tests

@@ -89,7 +89,7 @@ class WelcomePage(QScrollArea):
         acts = QHBoxLayout()
         for label, key, primary in [("Open Morty project", "morty", True), ("New Tulpa file", "new", False),
                                     ("Open folder…", "folder", False), ("Open model…", "model", False),
-                                    ("Language guide", "guide", False)]:
+                                    ("New firmware project…", "firmware", False), ("Language guide", "guide", False)]:
             b = QPushButton(label)
             if primary:
                 b.setObjectName("primary")
@@ -515,6 +515,8 @@ class IdeWindow(QMainWindow):
             self.new_file()
         elif key == "folder":
             self.open_folder_dialog()
+        elif key == "firmware":
+            self.new_firmware_project()
         elif key == "model":
             self.open_model_dialog()
         elif key == "guide":
