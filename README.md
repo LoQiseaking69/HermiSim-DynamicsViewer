@@ -98,7 +98,7 @@ You can point HermiSim at a specific toolchain with `TULPA_BIN`, or under *Setti
 ### Building the Windows installer
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.1.0
+powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.1.1
 ```
 
 The script:
