@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import logging
 import time
 from dataclasses import dataclass, field
@@ -25,6 +27,9 @@ KINDS = {
     "build": "Build Native (LLVM)",
     "native": "Run Natively (LLVM executable)",
     "firmware": "Build Firmware",
+    "prove": "Prove Contracts",
+    "bundle": "Bundle Standalone Executable",
+    "deploy": "Deploy to Board",
     "bytecode": "Show Bytecode",
 }
 
@@ -103,6 +108,14 @@ class RunManager(QObject):
             target = cfg.target or "rp2040"
             out = path.with_name(f"{path.stem}-{target}.o")
             argv = ["build", str(path), "--target", target, "-o", str(out)]
+        elif cfg.kind == "prove":
+            argv = ["prove", *cfg.args, str(path)]
+        elif cfg.kind == "bundle":
+            out = path.with_name(path.stem + ("-app.exe" if os.name == "nt" else "-app"))
+            argv = ["bundle", str(path), "-o", str(out), *cfg.args]
+        elif cfg.kind == "deploy":
+            # `file` is the project's app.rav; tulpa deploy takes the project folder
+            argv = ["deploy", str(path.parent), *cfg.args]
         elif cfg.kind == "cosim":
             if cfg.model:
                 try:

@@ -8,9 +8,9 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QDir, QSortFilterProxyModel, Qt, Signal
+from PySide6.QtCore import QDir, QProcess, QSortFilterProxyModel, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
-from PySide6.QtWidgets import (QFileSystemModel, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QCheckBox, QFileSystemModel, QHBoxLayout, QSpinBox, QHeaderView, QLabel, QLineEdit,
                                QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem,
                                QTreeView, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -131,6 +131,151 @@ class ProblemsPanel(QTreeWidget):
 
     def count(self) -> int:
         return sum(len(v) for v in self._by_file.values())
+
+
+class ProofsPanel(QTreeWidget):
+    """Results of `tulpa prove`: one row per obligation, grouped by function."""
+
+    location_clicked = Signal(str, int, int)
+    COLORS = {"proved": theme.GREEN, "refuted": theme.RED, "unproved": theme.AMBER, "skipped": theme.CYAN}
+    MARKS = {"proved": "✓", "refuted": "✗", "unproved": "?", "skipped": "–"}
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setHeaderLabels(["Obligation", "Status", "Detail"])
+        self.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.setColumnWidth(1, 90)
+        self.setColumnWidth(2, 380)
+        self.itemDoubleClicked.connect(self._open)
+        self.report: Optional[dict] = None
+
+    @staticmethod
+    def _line_of(source: str, ctx: str) -> int:
+        """Line where the function/method/machine named by an obligation's context starts."""
+        name = ctx.removeprefix("machine ").removesuffix("()")
+        owner, _, method = name.rpartition(".")
+        lines = source.splitlines()
+        start = 0
+        if owner:
+            for i, text in enumerate(lines):
+                if re.match(rf"\s*struct\s+{re.escape(owner)}\b", text):
+                    start = i
+                    break
+        pat = re.compile(rf"\s*(fn|def|struct|machine)\s+{re.escape(method)}\b")
+        for i in range(start, len(lines)):
+            if pat.match(lines[i]):
+                return i + 1
+        return 1
+
+    def set_report(self, path: str, report: dict) -> None:
+        self.report = report
+        self.clear()
+        try:
+            source = Path(path).read_text(encoding="utf-8")
+        except OSError:
+            source = ""
+        groups: dict[str, QTreeWidgetItem] = {}
+        order = {"refuted": 0, "unproved": 1, "skipped": 2, "proved": 3}
+        for ob in report.get("obligations", []):
+            ctx = ob["context"]
+            if ctx not in groups:
+                g = QTreeWidgetItem([ctx, "", ""])
+                g.setData(0, Qt.UserRole, (path, self._line_of(source, ctx)))
+                groups[ctx] = g
+                self.addTopLevelItem(g)
+            status = ob["status"]
+            it = QTreeWidgetItem([ob["text"], f"{self.MARKS.get(status, '')} {status}", ob.get("detail", "")])
+            it.setForeground(1, QColor(self.COLORS.get(status, theme.CYAN)))
+            line = ob.get("line") or groups[ctx].data(0, Qt.UserRole)[1]
+            it.setData(0, Qt.UserRole, (path, line))
+            groups[ctx].addChild(it)
+            worst = groups[ctx].data(1, Qt.UserRole) or "proved"
+            if order.get(status, 3) < order.get(worst, 3):
+                worst = status
+            groups[ctx].setData(1, Qt.UserRole, worst)
+        for g in groups.values():
+            worst = g.data(1, Qt.UserRole) or "proved"
+            g.setText(1, f"{self.MARKS[worst]} {worst}")
+            g.setForeground(1, QColor(self.COLORS[worst]))
+            g.setExpanded(worst != "proved")
+
+    def summary(self) -> str:
+        r = self.report or {}
+        return (f"{r.get('proved', 0)} proved, {r.get('refuted', 0)} refuted, "
+                f"{r.get('unproved', 0)} unproved, {r.get('skipped', 0)} skipped")
+
+    def _open(self, it, _col) -> None:
+        loc = it.data(0, Qt.UserRole)
+        if loc:
+            self.location_clicked.emit(loc[0], int(loc[1]), 1)
+
+
+class NetworkPanel(QWidget):
+    """Live view of a Tulpa Link network (UDP): nodes with their topics and services."""
+
+    def __init__(self, toolchain_getter, parent=None) -> None:
+        super().__init__(parent)
+        self._tc = toolchain_getter
+        self.domain = QSpinBox()
+        self.domain.setRange(0, 200)
+        self.domain.setPrefix("domain ")
+        self.auto = QCheckBox("auto-refresh")
+        self.refresh_btn = QPushButton("Refresh")
+        self.status = QLabel("Tulpa Link nodes on this network appear here")
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["Node / endpoint", "Kind"])
+        self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        top = QHBoxLayout()
+        for w in (self.domain, self.refresh_btn, self.auto, self.status):
+            top.addWidget(w)
+        top.addStretch(1)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.addLayout(top)
+        lay.addWidget(self.tree)
+        self.proc: Optional[QProcess] = None
+        self.timer = QTimer(self)
+        self.timer.setInterval(2000)
+        self.timer.timeout.connect(self.refresh)
+        self.refresh_btn.clicked.connect(self.refresh)
+        self.auto.toggled.connect(lambda on: self.timer.start() if on else self.timer.stop())
+
+    def refresh(self) -> None:
+        if self.proc is not None:
+            return
+        tc = self._tc()
+        if tc is None:
+            self.status.setText("no Tulpa toolchain")
+            return
+        cmd = tc.cmd("link", "graph", "--domain", str(self.domain.value()), "--for", "0.8")
+        self.proc = QProcess(self)
+        self.proc.finished.connect(self._done)
+        self.proc.start(cmd[0], cmd[1:])
+
+    def _done(self, *_a) -> None:
+        proc, self.proc = self.proc, None
+        if proc is None:
+            return
+        text = bytes(proc.readAllStandardOutput()).decode("utf-8", "replace")
+        err = bytes(proc.readAllStandardError()).decode("utf-8", "replace").strip()
+        proc.deleteLater()
+        from tulpa_bridge import toolchain
+        if err and not text.strip():
+            self.status.setText(err.splitlines()[-1][:120])
+            return
+        self.show_nodes(toolchain.parse_link_graph(text))
+
+    def show_nodes(self, nodes: list) -> None:
+        self.tree.clear()
+        for n in nodes:
+            top = QTreeWidgetItem([n["name"], "node"])
+            for key, kind in (("publishes", "publishes"), ("subscribes", "subscribes"), ("services", "service")):
+                for t in n[key]:
+                    top.addChild(QTreeWidgetItem([t, kind]))
+            self.tree.addTopLevelItem(top)
+            top.setExpanded(True)
+        topics = {t for n in nodes for t in n["publishes"] + n["subscribes"]}
+        self.status.setText(f"{len(nodes)} node(s), {len(topics)} topic(s)" if nodes else "no nodes found")
 
 
 class OutlinePanel(QTreeWidget):

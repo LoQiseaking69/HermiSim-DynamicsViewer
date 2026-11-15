@@ -1,0 +1,12 @@
+{
+  "name": "Autonomy lab",
+  "description": "Tulpa 3.4 in one folder: goal planning and mission orchestration, Tulpa Link middleware on a simulated lossy network, driver-in-the-loop simulation with emulated chips, and contracts proved for every input.",
+  "entry": "mission.rav",
+  "run_configurations": [
+    {"name": "Mission: plan, execute, replan", "kind": "run", "file": "mission.rav"},
+    {"name": "Fleet: Tulpa Link on a lossy network", "kind": "run", "file": "fleet.rav"},
+    {"name": "Rover: physics + emulated chips + real drivers", "kind": "run", "file": "rover_sim.rav"},
+    {"name": "Safety: prove the contracts", "kind": "prove", "file": "safety.rav"},
+    {"name": "Mission as a standalone executable", "kind": "bundle", "file": "mission.rav"}
+  ]
+}

@@ -1,4 +1,5 @@
 """Tulpa ↔ HermiSim bridge: telemetry parsing, VCD parsing, and a real co-simulation run."""
+import os
 from pathlib import Path
 
 import pytest
@@ -115,3 +116,113 @@ def test_run_natively_and_firmware_kinds(tmp_path, qtbot):
     assert blocker.args[0] == 0
     obj = tmp_path / "blink-rp2040.o"
     assert obj.read_bytes()[:4] == b"\x7fELF"
+
+
+PROOF_SRC = """fn limit(x: float, lo: float, hi: float) -> float
+    require lo <= hi
+    ensure lo <= result' and result' <= hi
+{ clamp(x, lo, hi) }
+
+fn wrong(x: int) -> int ensure result' > x { x }
+
+struct Joint {
+    angle: [deg] = 0[deg]
+    limit: [deg] = 90[deg]
+    invariant self.angle <= self.limit
+    fn move_to(self, a: [deg]) { self.angle = min(a, self.limit) }
+}
+"""
+
+
+@needs_tulpa
+def test_prove_report_and_panel(tmp_path, qtbot):
+    if not toolchain.has_command(TC, "prove"):
+        pytest.skip("toolchain older than Tulpa 3.4")
+    src = tmp_path / "p.rav"
+    src.write_text(PROOF_SRC)
+    report = toolchain.prove(TC, src)
+    assert report is not None, toolchain.last_error
+    by = {(o["context"], o["kind"]): o for o in report["obligations"]}
+    assert by[("limit()", "ensure")]["status"] == "proved"
+    assert by[("wrong()", "ensure")]["status"] == "refuted"
+    assert "counterexample" in by[("wrong()", "ensure")]["detail"]
+    assert by[("Joint.move_to()", "invariant")]["status"] == "proved"
+
+    from gui.ide.panels import ProofsPanel
+    panel = ProofsPanel()
+    qtbot.addWidget(panel)
+    panel.set_report(str(src), report)
+    groups = {panel.topLevelItem(i).text(0): panel.topLevelItem(i) for i in range(panel.topLevelItemCount())}
+    assert "refuted" in groups["wrong()"].text(1) and "proved" in groups["limit()"].text(1)
+    assert groups["wrong()"].data(0, 0x0100)[1] == 6            # Qt.UserRole: jumps to `fn wrong`
+    assert groups["Joint.move_to()"].data(0, 0x0100)[1] == 12
+    assert "1 refuted" in panel.summary()
+
+
+def test_parse_link_graph():
+    text = "rover\n  pub  /rover/speed\n  srv  /rover/stop\nbase\n  sub  /rover/speed\n"
+    nodes = toolchain.parse_link_graph(text)
+    assert [n["name"] for n in nodes] == ["rover", "base"]
+    assert nodes[0]["publishes"] == ["/rover/speed"] and nodes[0]["services"] == ["/rover/stop"]
+    assert nodes[1]["subscribes"] == ["/rover/speed"]
+    assert toolchain.parse_link_graph("no nodes found on domain 0\n") == []
+
+
+@needs_tulpa
+def test_bundle_and_deploy_kinds(tmp_path, qtbot):
+    if not toolchain.has_command(TC, "bundle"):
+        pytest.skip("toolchain older than Tulpa 3.4")
+    import subprocess
+    from gui.ide.run_manager import RunConfig, RunManager
+    src = tmp_path / "dyn.rav"
+    src.write_text('let d = {robot: "morty"}\nprint(d, [1, 2].map(|x| x * 2))\n')
+    rm = RunManager(simulation=None)
+    rm.tc = TC
+    out: list[str] = []
+    rm.stdout.connect(out.append)
+    rm.stderr.connect(out.append)
+    with qtbot.waitSignal(rm.finished, timeout=60_000) as blocker:
+        assert rm.start(RunConfig(name="b", kind="bundle", file=str(src), cwd=str(tmp_path)))
+    assert blocker.args[0] == 0, out
+    exe = tmp_path / ("dyn-app.exe" if os.name == "nt" else "dyn-app")
+    r = subprocess.run([str(exe)], capture_output=True, text=True, cwd="/")
+    assert r.stdout == '{"robot": "morty"} [2, 4]\n'
+
+    proj = tmp_path / "rover"
+    assert TC.run("new", str(proj), "--board", "rp2040").returncode == 0
+    out.clear()
+    with qtbot.waitSignal(rm.finished, timeout=120_000) as blocker:
+        assert rm.start(RunConfig(name="d", kind="deploy", file=str(proj / "app.rav"), args=["--dry-run"], cwd=str(proj)))
+    text = "\n".join(out)
+    assert blocker.args[0] == 0, text
+    assert "[1/4] prove" in text and "rover.uf2" in text
+
+
+@needs_tulpa
+def test_network_panel_shows_udp_nodes(tmp_path, qtbot):
+    if not toolchain.has_command(TC, "link"):
+        pytest.skip("toolchain older than Tulpa 3.4")
+    import subprocess
+    domain = 150 + os.getpid() % 40
+    talker = tmp_path / "talker.rav"
+    talker.write_text(
+        'import "std/link"\n'
+        f'let n = link.node("talker", domain: {domain}, transport: "udp")\n'
+        'let t = n.advertise("/chat", "str")\n'
+        'for i in 0..200 { t.publish("hi"); link.spin_for(20[ms]) }\n')
+    proc = subprocess.Popen(TC.cmd(str(talker)), env=TC.env())
+    try:
+        from gui.ide.panels import NetworkPanel
+        panel = NetworkPanel(lambda: TC)
+        qtbot.addWidget(panel)
+        panel.domain.setValue(domain)
+        panel.refresh()
+        qtbot.waitUntil(lambda: panel.proc is None, timeout=20_000)
+        if "Operation not permitted" in panel.status.text():
+            pytest.skip("UDP unavailable")
+        names = [panel.tree.topLevelItem(i).text(0) for i in range(panel.tree.topLevelItemCount())]
+        assert names == ["talker"], panel.status.text()
+        assert panel.tree.topLevelItem(0).child(0).text(0) == "/chat"
+    finally:
+        proc.kill()
+        proc.wait()

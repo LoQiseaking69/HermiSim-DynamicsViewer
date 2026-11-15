@@ -113,3 +113,53 @@ def native_targets(tc: Toolchain) -> list[tuple[str, str]]:
 def native_exe_name(source: Path) -> Path:
     """Where Run Natively puts the executable for ``source``."""
     return source.with_name(source.stem + ("-native.exe" if os.name == "nt" else "-native"))
+
+
+def prove(tc: Toolchain, source: "str | Path", strict: bool = False, timeout: float = 120) -> Optional[dict]:
+    """`tulpa prove --json FILE` as a dict: {file, proved, refuted, unproved, skipped, obligations}.
+
+    None if the toolchain is older than Tulpa 3.4 or the file does not parse (stderr is in
+    ``last_error``).
+    """
+    global last_error
+    args = ["prove", "--json"] + (["--strict"] if strict else []) + [str(source)]
+    try:
+        r = tc.run(*args, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as e:
+        last_error = str(e)
+        return None
+    try:
+        import json
+        reports = json.loads(r.stdout)
+        return reports[0] if reports else None
+    except (ValueError, IndexError):
+        last_error = (r.stderr or r.stdout).strip()
+        return None
+
+
+last_error = ""
+
+
+def parse_link_graph(text: str) -> list[dict]:
+    """Parses `tulpa link graph` output into [{name, publishes, subscribes, services}]."""
+    nodes: list[dict] = []
+    keys = {"pub": "publishes", "sub": "subscribes", "srv": "services"}
+    for line in text.splitlines():
+        if not line.strip() or line.startswith("no nodes found"):
+            continue
+        if not line.startswith(" "):
+            nodes.append({"name": line.strip(), "publishes": [], "subscribes": [], "services": []})
+        elif nodes:
+            kind, _, topic = line.strip().partition(" ")
+            if kind in keys:
+                nodes[-1][keys[kind]].append(topic.strip())
+    return nodes
+
+
+def has_command(tc: Toolchain, name: str) -> bool:
+    """Does this toolchain know `tulpa NAME` (prove, bundle, deploy, link: Tulpa 3.4+)?"""
+    try:
+        r = tc.run("--help", timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return f"tulpa {name} " in (r.stdout + r.stderr)

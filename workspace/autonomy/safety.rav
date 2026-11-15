@@ -1,0 +1,51 @@
+# Contracts the prover can check for every input. Run ▸ Prove Contracts (Ctrl+Alt+P).
+# Three of these hold; `brake_distance` and `Arm.nudge` do not, and the Proofs panel shows why.
+const V_MAX = 1.5[m/s]
+const A_MAX = 2[m/s^2]
+
+# Speed commands never leave the envelope, whatever the planner asks for.
+fn limit_speed(v: [m/s]) -> [m/s]
+    ensure result' >= -V_MAX and result' <= V_MAX
+{
+    clamp(v, -V_MAX, V_MAX)
+}
+
+# The command moves toward the target by at most `step` per tick.
+fn slew(target: float, current: float, step: float) -> float
+    require step > 0.0
+    ensure abs(result' - current) <= step
+{
+    current + clamp(target - current, -step, step)
+}
+
+# PWM duty from a percentage: always a valid 8-bit value.
+fn duty(percent: int) -> int
+    require 0 <= percent and percent <= 100
+    ensure 0 <= result' and result' <= 255
+{
+    percent * 255 / 100
+}
+
+# Bug: nothing stops `decel` from being zero. The prover reports the counterexample.
+fn brake_distance(v: [m/s], decel: [m/s^2]) -> [m]
+    require v >= 0[m/s]
+{
+    v * v / (2.0 * decel)
+}
+
+struct Arm {
+    angle: [deg] = 0[deg]
+    limit: [deg] = 120[deg]
+    invariant 0[deg] <= self.angle and self.angle <= self.limit
+
+    fn move_to(self, a: [deg]) { self.angle = clamp(a, 0[deg], self.limit) }      # proved
+    fn nudge(self, d: [deg]) { self.angle = self.angle + d }                       # not proved
+}
+
+machine Gripper {
+    state Open { on grab => Closing }
+    state Closing { on contact => Holding; on timeout => Open }
+    state Holding { on release => Open }
+}
+
+print(limit_speed(4[m/s]), slew(10.0, 0.0, 0.5), duty(50))

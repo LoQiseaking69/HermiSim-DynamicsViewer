@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QFileDialog
 from gui.ide import theme
 from gui.ide.editor import CodeEditor, FindBar
 from gui.ide.machine_view import MachinesView
-from gui.ide.panels import Console, CsvView, OutlinePanel, ProblemsPanel, ProjectTree, parse_location
+from gui.ide.panels import (Console, CsvView, NetworkPanel, OutlinePanel, ProblemsPanel, ProjectTree,
+                            ProofsPanel, parse_location)
 from gui.ide.plots import TelemetryPanel
 from gui.ide.run_manager import KINDS, RunConfig, RunManager
 from gui.ide.vcd_view import VcdViewer
@@ -87,7 +88,8 @@ class WelcomePage(QScrollArea):
         hero.addLayout(txt, 1)
         lay.addLayout(hero)
         acts = QHBoxLayout()
-        for label, key, primary in [("Open Morty project", "morty", True), ("New Tulpa file", "new", False),
+        for label, key, primary in [("Open Morty project", "morty", True), ("Open Autonomy lab", "autonomy", False),
+                                    ("New Tulpa file", "new", False),
                                     ("Open folder…", "folder", False), ("Open model…", "model", False),
                                     ("New firmware project…", "firmware", False), ("Language guide", "guide", False)]:
             b = QPushButton(label)
@@ -245,6 +247,9 @@ class IdeWindow(QMainWindow):
         self.console.location_clicked.connect(self.goto_location)
         self.problems = ProblemsPanel()
         self.problems.location_clicked.connect(self.goto_location)
+        self.proofs = ProofsPanel()
+        self.proofs.location_clicked.connect(self.goto_location)
+        self.network = NetworkPanel(self.runs.ensure_toolchain)
         self.plots = TelemetryPanel()
         from gui.tabs.log_tab import LogTab
         from gui.tabs.sensor_tab import SensorTab
@@ -264,7 +269,9 @@ class IdeWindow(QMainWindow):
         self.d_problems = self._dock("Problems", self.problems, Qt.BottomDockWidgetArea)
         self.d_plots = self._dock("Telemetry", self.plots, Qt.BottomDockWidgetArea)
         self.d_logs = self._dock("Logs", self.logs, Qt.BottomDockWidgetArea)
-        for d in (self.d_terminal, self.d_problems, self.d_plots, self.d_logs):
+        self.d_proofs = self._dock("Proofs", self.proofs, Qt.BottomDockWidgetArea)
+        self.d_network = self._dock("Network", self.network, Qt.BottomDockWidgetArea)
+        for d in (self.d_terminal, self.d_problems, self.d_proofs, self.d_plots, self.d_network, self.d_logs):
             self.tabifyDockWidget(self.d_console, d)
         self.d_console.raise_()
         self.resizeDocks([self.d_explorer, self.d_sim], [260, 520], Qt.Horizontal)
@@ -358,6 +365,13 @@ class IdeWindow(QMainWindow):
         self._act(r, "Build Firmware for Board…", self.build_firmware, "Ctrl+Shift+B",
                   tip="tulpa build --target rp2040 / esp32 / esp32c3 / …")
         self._act(r, "New Firmware Project…", self.new_firmware_project)
+        self._act(r, "Deploy Project to Board…", self.deploy_project,
+                  tip="tulpa deploy: prove, check on the simulator, build with the board SDK, flash")
+        self._act(r, "Bundle Standalone Executable", lambda: self.run_kind("bundle"),
+                  tip="tulpa bundle: one executable with the whole language, for desktops and Linux boards")
+        r.addSeparator()
+        self._act(r, "Prove Contracts", self.prove_current, "Ctrl+Alt+P",
+                  tip="tulpa prove: statically prove ensure/invariant/assert obligations, with counterexamples")
         self._act(r, "Show Bytecode", lambda: self.run_kind("bytecode"))
         self._act(r, "State Machine Diagrams", self.show_machines, "Ctrl+Shift+G")
         r.addSeparator()
@@ -372,7 +386,7 @@ class IdeWindow(QMainWindow):
 
         v = mb.addMenu("&View")
         for d in (self.d_explorer, self.d_outline, self.d_sim, self.d_sensors, self.d_console,
-                  self.d_terminal, self.d_problems, self.d_plots, self.d_logs):
+                  self.d_terminal, self.d_problems, self.d_proofs, self.d_plots, self.d_network, self.d_logs):
             v.addAction(d.toggleViewAction())
         v.addSeparator()
         self._act(v, "Model Builder", self.show_model_builder)
@@ -384,6 +398,10 @@ class IdeWindow(QMainWindow):
         h = mb.addMenu("&Help")
         self._act(h, "Tulpa Language Guide", lambda: self._open_doc("language_guide.md"))
         self._act(h, "Tulpa Libraries (nn, rl, rtl, eda, …)", lambda: self._open_doc("libraries.md"))
+        self._act(h, "Autonomy: Planning && Missions", lambda: self._open_doc("autonomy.md"))
+        self._act(h, "Tulpa Link Middleware", lambda: self._open_doc("link.md"))
+        self._act(h, "Simulation && Verification", lambda: self._open_doc("simulation.md"))
+        self._act(h, "Proving Safety", lambda: self._open_doc("safety.md"))
         self._act(h, "Driver SDK", lambda: self._open_doc("drivers.md"))
         self._act(h, "Native && Embedded Targets", lambda: self._open_doc("embedded.md"))
         self._act(h, "Diagnostics (toolchain, 3-D, co-sim)…", self.doctor)
@@ -406,6 +424,9 @@ class IdeWindow(QMainWindow):
             b = QToolButton(text=label)
             b.clicked.connect(lambda _=False, k=kind: self.run_kind(k))
             tb.addWidget(b)
+        pb = QToolButton(text="Prove")
+        pb.clicked.connect(self.prove_current)
+        tb.addWidget(pb)
         g = QToolButton(text="Diagram")
         g.clicked.connect(self.show_machines)
         tb.addWidget(g)
@@ -511,6 +532,9 @@ class IdeWindow(QMainWindow):
     def _welcome_action(self, key: str) -> None:
         if key == "morty":
             self.open_project(str(userdata.workspace() / "morty"))
+        elif key == "autonomy":
+            self.open_project(str(userdata.workspace() / "autonomy"))
+            self.open_file(str(userdata.workspace() / "autonomy" / "safety.rav"))
         elif key == "new":
             self.new_file()
         elif key == "folder":
@@ -788,6 +812,50 @@ class IdeWindow(QMainWindow):
             self.open_project(str(dest))
             if (dest / "app.rav").is_file():
                 self.open_file(str(dest / "app.rav"))
+
+    def prove_current(self) -> None:
+        """Runs `tulpa prove` on the current file and shows the obligations in the Proofs dock."""
+        ed = self.editor()
+        if ed is None:
+            self.console.append("open a .rav file first", "warn")
+            return
+        if ed.document().isModified() or not ed.path:
+            if not self._save_editor(ed):
+                return
+        tc = self.runs.ensure_toolchain()
+        if tc is None:
+            self.console.append("tulpa toolchain not found", "err")
+            return
+        report = toolchain.prove(tc, ed.path)
+        if report is None:
+            msg = toolchain.last_error or "this Tulpa toolchain has no `prove` command — update it to 3.4 or newer"
+            self.console.append(msg, "err")
+            return
+        self.proofs.set_report(ed.path, report)
+        self.d_proofs.show()
+        self.d_proofs.raise_()
+        kind = "err" if report.get("refuted") else ("warn" if report.get("unproved") else "sys")
+        self.console.append(f"prove {Path(ed.path).name}: {self.proofs.summary()}", kind)
+
+    def deploy_project(self) -> None:
+        """`tulpa deploy` for the open firmware project (a folder created by New Firmware Project)."""
+        root = Path(self.project_dir) if self.project_dir else None
+        if root is None or not (root / "app.rav").is_file():
+            self.console.append("Deploy needs a firmware project open (Run ▸ New Firmware Project…)", "warn")
+            return
+        modes = ["Dry run (show the steps)", "Build only (no flash)", "Build and flash"]
+        choice, ok = QInputDialog.getItem(self, "Deploy to board", "Mode:", modes, 0, False)
+        if not ok:
+            return
+        args = [["--dry-run"], ["--no-flash"], []][modes.index(choice)]
+        if choice == modes[2]:
+            port, ok = QInputDialog.getText(self, "Deploy to board", "Serial port / UF2 drive / user@host (blank = auto):")
+            if not ok:
+                return
+            port = port.strip()
+            if port:
+                args = ["--host" if "@" in port else "--port", port]
+        self.start(RunConfig(name="deploy", kind="deploy", file=str(root / "app.rav"), args=args, cwd=str(root)))
 
     def run_kind(self, kind: str, target: Optional[str] = None) -> None:
         ed = self.editor()
