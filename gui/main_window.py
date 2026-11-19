@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent: Optional[QMainWindow] = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("HermiSim — Dynamics Viewer")
+        self.setWindowTitle(".RAV IDE — Dynamics Viewer")
         self.setMinimumSize(1280, 800)
 
         # Core objects
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
     def _show_about(self) -> None:
         QMessageBox.about(
             self,
-            "HermiSim Dynamics Viewer",
+            ".RAV IDE Dynamics Viewer",
             "Institutional-grade robotics simulation viewer.\n\n"
             "Engine: MuJoCo\nUI: PySide6 (LGPL)",
         )

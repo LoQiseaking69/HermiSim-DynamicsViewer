@@ -1,6 +1,6 @@
-# PyInstaller spec — HermiSim one-folder bundle (Windows, Linux, macOS).
+# PyInstaller spec — .RAV IDE one-folder bundle (Windows, Linux, macOS).
 #
-#   pyinstaller installer/hermisim.spec --noconfirm
+#   pyinstaller installer/ravide.spec --noconfirm
 #
 # Expects the Tulpa toolchain staged at build/toolchain/{bin,lib/tulpa,share/doc/tulpa}
 # (installer/windows/build.ps1 and installer/stage_toolchain.py do this).
@@ -55,23 +55,23 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-icon = str(ROOT / "assets" / "logo" / "hermisim.ico")
+icon = str(ROOT / "assets" / "logo" / "ravide.ico")
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name="HermiSim",
+    name="RAVIDE",
     console=False,
     icon=icon,
     version=(str(ROOT / "build" / "version_info.txt") if (ROOT / "build" / "version_info.txt").is_file()
              else str(ROOT / "installer" / "windows" / "version_info.txt")) if WIN else None,
     disable_windowed_traceback=False,
 )
-# Console twin for the headless co-sim runner (`hermisim-cli run file.rav --model m.xml`).
+# Console twin for the headless co-sim runner (`ravide-cli run file.rav --model m.xml`).
 cli = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name="hermisim-cli",
+    name="ravide-cli",
     console=True,
     icon=icon,
 )
-coll = COLLECT(exe, cli, a.binaries, a.datas, strip=False, upx=False, name="HermiSim")
+coll = COLLECT(exe, cli, a.binaries, a.datas, strip=False, upx=False, name="RAVIDE")

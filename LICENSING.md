@@ -1,6 +1,6 @@
 # Licensing
 
-HermiSim 2.3.0 and later are licensed under the [Business Source License 1.1](LICENSE)
+.RAV IDE (formerly HermiSim) 2.3.0 and later are licensed under the [Business Source License 1.1](LICENSE)
 (SPDX: `BUSL-1.1`). The licensor is HermiTech LLC.
 
 | You want to | Allowed? |

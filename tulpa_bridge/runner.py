@@ -93,7 +93,8 @@ def run_cosim(script: str, model: str, realtime: float = 0.0, timeout: Optional[
     server = CoSimServer(session).start()
     script_path = Path(script).resolve()
     proc = TulpaProcess(tc, [str(script_path), *(script_args or [])], cwd=str(toolchain.project_root(script_path)),
-                        env={"TULPA_COSIM": server.address, "HERMISIM_MODEL": str(Path(model).resolve())},
+                        env={"TULPA_COSIM": server.address, "RAVIDE_MODEL": str(Path(model).resolve()),
+                             "HERMISIM_MODEL": str(Path(model).resolve())},
                         on_telemetry=on_telemetry,
                         on_stdout=(lambda s: None) if quiet else None).start()
     t0 = time.time()
@@ -106,7 +107,7 @@ def run_cosim(script: str, model: str, realtime: float = 0.0, timeout: Optional[
     finally:
         server.stop()
     if not quiet:
-        print(f"[hermisim] exit {code} — {session.steps} physics steps, sim t={engine.simulation_time:.3f}s, "
+        print(f"[ravide] exit {code} — {session.steps} physics steps, sim t={engine.simulation_time:.3f}s, "
               f"wall {time.time() - t0:.2f}s", file=sys.stderr)
     return code
 
@@ -133,7 +134,7 @@ def selftest_cosim(tc: Optional[toolchain.Toolchain] = None, timeout: float = 30
     tc = tc or toolchain.find()
     if tc is None:
         return False, "tulpa toolchain not found (Settings ▸ Tulpa Toolchain, or set TULPA_BIN)"
-    with tempfile.TemporaryDirectory(prefix="hermisim-selftest-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ravide-selftest-") as tmp:
         model = Path(tmp) / "pendulum.xml"
         model.write_text(_SELFTEST_MODEL)
         script = Path(tmp) / "selftest.rav"
@@ -170,7 +171,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
         except (AttributeError, ValueError):
             pass
-    ap = argparse.ArgumentParser(prog="hermisim", description="HermiSim × TulpaLang runner")
+    ap = argparse.ArgumentParser(prog="ravide", description=".RAV IDE × TulpaLang runner")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="run a Tulpa program in lock-step with a MuJoCo model")
     r.add_argument("script")

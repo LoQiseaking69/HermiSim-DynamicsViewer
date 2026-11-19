@@ -1,4 +1,4 @@
-"""Bridge between HermiSim and the TulpaLang toolchain.
+"""Bridge between .RAV IDE and the TulpaLang toolchain.
 
 * :mod:`toolchain`     — locate / invoke the ``tulpa`` binary and its standard library
 * :mod:`cosim_server`  — JSON-lines co-simulation server (``cosim::`` in Tulpa) over MuJoCo

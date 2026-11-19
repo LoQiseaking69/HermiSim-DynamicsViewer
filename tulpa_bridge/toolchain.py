@@ -84,12 +84,26 @@ def find(configured: Optional[str] = None) -> Optional[Toolchain]:
     return None
 
 
+# Project descriptor. ``ravide.json`` is current; ``hermisim.json`` (pre-rebrand) is still read.
+PROJECT_FILES = ("ravide.json", "hermisim.json")
+
+
+def project_file(d: "str | Path") -> "Path | None":
+    """The project descriptor in folder *d*, or None if it is not a project."""
+    for name in PROJECT_FILES:
+        f = Path(d) / name
+        if f.is_file():
+            return f
+    return None
+
+
 def project_root(script: "str | Path") -> Path:
-    """Working directory for running *script*: the nearest folder with a ``hermisim.json``
-    (project paths such as ``out/`` and ``weights/`` are relative to it), else the script's folder."""
+    """Working directory for running *script*: the nearest folder with a ``ravide.json``
+    (or legacy ``hermisim.json``; project paths such as ``out/`` and ``weights/`` are relative
+    to it), else the script's folder."""
     p = Path(script).resolve()
     for d in p.parents:
-        if (d / "hermisim.json").is_file():
+        if project_file(d):
             return d
     return p.parent
 

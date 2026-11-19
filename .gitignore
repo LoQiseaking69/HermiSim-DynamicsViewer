@@ -7,6 +7,8 @@ __pycache__/
 *.pyo
 
 # Logs
+ravide.log
+ravide.log.*
 hermisim.log
 hermisim.log.*
 

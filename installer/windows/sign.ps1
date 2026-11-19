@@ -4,9 +4,9 @@
 
 .DESCRIPTION
   Used three ways:
-    * by build.ps1 for the bundled executables (HermiSim.exe, hermisim-cli.exe, tulpa.exe)
+    * by build.ps1 for the bundled executables (RAVIDE.exe, ravide-cli.exe, tulpa.exe)
     * by Inno Setup as its SignTool, for the setup executable and its uninstaller
-    * by hand:  powershell -File installer\windows\sign.ps1 dist\installer\HermiSim-Setup-2.3.0-x64.exe
+    * by hand:  powershell -File installer\windows\sign.ps1 dist\installer\RAVIDE-Setup-2.4.0-x64.exe
 
   Configuration comes from the environment:
     ARTIFACT_SIGNING_ENDPOINT   e.g. https://eus.codesigning.azure.net   (region of your account)
@@ -68,7 +68,7 @@ foreach ($f in $Files) {
   if (-not (Test-Path $f)) { throw "sign.ps1: no such file: $f" }
   for ($attempt = 1; $attempt -le 3; $attempt++) {
     & $signtool.FullName sign /v /fd SHA256 /tr "http://timestamp.acs.microsoft.com" /td SHA256 `
-      /d "HermiSim" /du "https://github.com/LoQiseaking69/HermiSim-DynamicsViewer" `
+      /d ".RAV IDE" /du "https://github.com/LoQiseaking69/HermiSim-DynamicsViewer" `
       /dlib $dlib.FullName /dmdf $metadata $f
     if ($LASTEXITCODE -eq 0) { break }
     if ($attempt -eq 3) { throw "sign.ps1: signing failed for $f" }

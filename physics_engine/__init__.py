@@ -1,1 +1,1 @@
-"""HermiSim physics engine package — MuJoCo-backed dynamics simulation."""
+""".RAV IDE physics engine package — MuJoCo-backed dynamics simulation."""

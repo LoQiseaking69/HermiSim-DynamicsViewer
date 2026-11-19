@@ -2,7 +2,8 @@
 
 In a source checkout everything is edited in place. In an installed build (PyInstaller bundle
 under Program Files, which is read-only) the bundled ``workspace/`` and ``models/`` are copied
-once to ``~/Documents/HermiSim`` so sample projects can write weights, VCDs and netlists.
+once to ``~/Documents/RAV IDE`` (or an existing ``~/Documents/HermiSim`` from before the
+rebrand) so sample projects can write weights, VCDs and netlists.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def _writable(p: Path) -> bool:
     try:
-        probe = p / ".hermisim-write-test"
+        probe = p / ".ravide-write-test"
         probe.write_text("x")
         probe.unlink()
         return True
@@ -39,7 +40,13 @@ def base() -> Path:
     frozen = getattr(sys, "frozen", False)
     if not frozen and _writable(ROOT):
         return ROOT
-    dest = Path(os.environ.get("HERMISIM_HOME", "")) if os.environ.get("HERMISIM_HOME") else _documents() / "HermiSim"
+    home = os.environ.get("RAVIDE_HOME") or os.environ.get("HERMISIM_HOME")
+    if home:
+        dest = Path(home)
+    else:
+        legacy, dest = _documents() / "HermiSim", _documents() / "RAV IDE"
+        if legacy.is_dir() and not dest.exists():
+            dest = legacy  # keep using the projects a HermiSim install already copied out
     for sub in ("workspace", "models"):
         src, dst = ROOT / sub, dest / sub
         if src.is_dir() and not dst.exists():

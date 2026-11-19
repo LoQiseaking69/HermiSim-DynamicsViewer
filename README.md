@@ -1,8 +1,11 @@
-![HermiSim](assets/logo/hermisim-banner.png)
+![.RAV IDE](assets/logo/ravide-banner.jpg)
 
-# HermiSim: simulation suite & IDE for TulpaLang
+# .RAV IDE: simulation suite & IDE for TulpaLang
 
-HermiSim is an engineering workbench for writing robot software in
+> Formerly **HermiSim**. Existing HermiSim installs, projects (`hermisim.json`) and the
+> `Documents\HermiSim` folder keep working; the installer upgrades HermiSim in place.
+
+.RAV IDE is an engineering workbench for writing robot software in
 [TulpaLang](https://github.com/LoQiseaking69/TulpaLang) and testing it, all in one window:
 - MuJoCo physics, driven in lock-step from Tulpa programs
 - cycle-accurate RTL models, shown in a waveform viewer
@@ -12,7 +15,7 @@ HermiSim is an engineering workbench for writing robot software in
 The bundled **Morty** project rewrites the
 [Morty bipedal humanoid](https://github.com/LoQiseaking69/Morty) entirely in Tulpa.
 
-![HermiSim welcome page](image%20(20).webp)
+![.RAV IDE welcome page](image%20(20).webp)
 
 ![IDE running Morty in the simulator](docs/screenshots/02_cosim.png)
 
@@ -22,7 +25,7 @@ The bundled **Morty** project rewrites the
 |---|---|
 | **Tulpa editor** | Syntax highlighting, a language-server client (`tulpa lsp`) with live diagnostics, hover, completion and go-to-definition, an outline, find/replace, and multiple tabs. |
 | **Tulpa terminal** | A live `tulpa` REPL docked beside the console. `$ check main.rav` runs tulpa commands, `! cmd` runs shell commands, Ctrl+Enter sends the editor selection. |
-| **Run configurations** | Run, Test (`define_test!`), Verify (contract fuzzing), Prove, Build (LLVM native object + header), Run Natively, Run on the Firmware VM, Build Firmware, Bundle, Deploy, Link Bridge, Bytecode and Diagram. Projects define their own configurations in `hermisim.json`. |
+| **Run configurations** | Run, Test (`define_test!`), Verify (contract fuzzing), Prove, Build (LLVM native object + header), Run Natively, Run on the Firmware VM, Build Firmware, Bundle, Deploy, Link Bridge, Bytecode and Diagram. Projects define their own configurations in `ravide.json` (the older `hermisim.json` is still read). |
 | **Native & firmware (Tulpa 3.3)** | **Run ▸ Run Natively** (Ctrl+Shift+F5) compiles the whole program with `tulpa build --target sim --exe` and runs the executable. Use it to check that native output matches the interpreter. **Run ▸ Build Firmware for Board…** (Ctrl+Shift+B) builds for RP2040, ESP32, ESP32-S2/S3/C3/C6, Cortex-M or RISC-V. **Run ▸ New Firmware Project…** scaffolds a Pico SDK or ESP-IDF project with `tulpa new` and opens it. Driver SDK code (`interface`, `impl`, `std/driver`, `std/drivers/*`) is highlighted and documented under Help. |
 | **Proofs (Tulpa 3.4)** | **Run ▸ Prove Contracts** (Ctrl+Alt+P) runs `tulpa prove` and lists every obligation in the **Proofs** dock: each `ensure`, `assert`, struct and loop invariant, call precondition and divisor, marked proved, refuted (with a counterexample) or unproved. Double-click to jump to the code. |
 | **Deploy & bundle (Tulpa 3.4)** | **Run ▸ Deploy Project to Board…** runs `tulpa deploy` on a firmware project: prove, check on the simulator, build with the board SDK, flash. It has a dry-run mode. **Run ▸ Bundle Standalone Executable** makes one executable with the whole language for desktops and Linux boards. |
@@ -34,7 +37,7 @@ The bundled **Morty** project rewrites the
 | **Waveform viewer** | Opens VCD files written by `std/rtl` (or Verilog simulators), with zoom, pan, a cursor and signal filtering. |
 | **State-machine diagrams** | Renders every `machine` in the current file. |
 | **BOM / netlist viewer** | Tables for the CSV/JSON that `std/eda` exports. |
-| **Headless CLI** | `python -m tulpa_bridge run prog.rav --model m.xml` (or `hermisim-cli` in the installed build) for CI. |
+| **Headless CLI** | `python -m tulpa_bridge run prog.rav --model m.xml` (or `ravide-cli` in the installed build) for CI. |
 | **Classic viewer** | The original model viewer and model-builder wizard are still available with `--classic`. |
 
 <p>
@@ -74,7 +77,7 @@ cd workspace/morty && tulpa fpga/testbench.rav && tulpa board/motherboard.rav &&
 ### Windows
 
 **[⬇ Download the latest installer](https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/releases/latest)**:
-`HermiSim-Setup-<version>-x64.exe`. The installer:
+`RAVIDE-Setup-<version>-x64.exe`. The installer:
 - bundles the IDE, MuJoCo and the Tulpa toolchain
 - can add `tulpa` to `PATH` and associate `.rav`/`.tlp` files
 - installs per user without admin rights, or for all users
@@ -83,7 +86,7 @@ cd workspace/morty && tulpa fpga/testbench.rav && tulpa board/motherboard.rav &&
 (`winget install LLVM.LLVM`). Linking firmware also needs the board's SDK: the Pico SDK for
 RP2040, or ESP-IDF 5.x for the ESP32 family.
 
-Your editable projects go to `Documents\HermiSim`. Each release lists its SHA-256 checksum and
+Your editable projects go to `Documents\RAV IDE` (an existing `Documents\HermiSim` keeps being used). Each release lists its SHA-256 checksum and
 whether it is code-signed; see [code signing](installer/windows/SIGNING.md).
 
 ### From source (Linux, macOS, Windows)
@@ -91,27 +94,27 @@ whether it is code-signed; see [code signing](installer/windows/SIGNING.md).
 ```bash
 git clone https://github.com/LoQiseaking69/HermiSim-DynamicsViewer.git
 git clone https://github.com/LoQiseaking69/TulpaLang.git
-(cd TulpaLang && cargo build --release)          # HermiSim finds ../TulpaLang/target/release/tulpa
+(cd TulpaLang && cargo build --release)          # .RAV IDE finds ../TulpaLang/target/release/tulpa
 cd HermiSim-DynamicsViewer
 pip install -r requirements.txt
 python main.py                                   # IDE  (python main.py --classic for the old viewer)
 python -m tulpa_bridge doctor                    # toolchain / MuJoCo check
 ```
 
-You can point HermiSim at a specific toolchain with `TULPA_BIN`, or under *Settings ▸ Tulpa Toolchain*.
+You can point .RAV IDE at a specific toolchain with `TULPA_BIN`, or under *Settings ▸ Tulpa Toolchain*.
 
 ### Building the Windows installer
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.3.0
+powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.4.0
 ```
 
 The script:
 1. builds Tulpa and the VS Code extension
 2. stages the toolchain
-3. renders the brand assets
-4. builds the PyInstaller bundle (`installer/hermisim.spec`) and smoke-tests it
-5. compiles `installer/windows/hermisim.iss` with Inno Setup 6
+3. renders the brand assets (`tools/make_brand_assets.py`, from `assets/logo/ravide-logo.jpg`)
+4. builds the PyInstaller bundle (`installer/ravide.spec`) and smoke-tests it
+5. compiles `installer/windows/ravide.iss` with Inno Setup 6
 
 The `windows-installer` GitHub workflow does the same on every `v*` tag, or from *Run workflow*
 with *publish* ticked. It signs the installer with Microsoft Artifact Signing once that is set
@@ -128,7 +131,7 @@ physics_engine/        thread-safe MuJoCo engine + simulation state machine
 tulpa_bridge/          toolchain discovery, co-sim server (JSON-lines over TCP), runner, LSP client
 models/                morty.xml (18-actuator humanoid), starter_model.xml
 workspace/morty/       Morty in Tulpa
-assets/logo/           ghost-raven mark (SVG source + rendered PNG/ICO)
+assets/logo/           .RAV IDE circuit-raven logo (master JPG + rendered PNG/ICO/banner)
 installer/             PyInstaller spec, Inno Setup script, build script, wizard art
 tools/                 brand-asset renderer, headless IDE smoke test
 tests/                 pytest: engine, file loader, telemetry/VCD, Tulpa co-sim end-to-end, native/firmware run kinds

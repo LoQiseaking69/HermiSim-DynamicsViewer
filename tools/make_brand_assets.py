@@ -1,29 +1,58 @@
-"""Render brand bitmaps from assets/logo/hermisim-mark.svg (PNG sizes, .ico, wordmark,
-README banner, Inno Setup wizard images). Requires cairosvg + Pillow.
+""".RAV IDE brand bitmaps, rendered from the master logo ``assets/logo/ravide-logo.jpg``
+(1408×768 neon circuit-raven with the ``.RAV IDE`` lettering). Requires Pillow only.
+
+Writes:
+  assets/logo/ravide-mark-{32..1024}.png   square app mark (whole logo, raven + lettering)
+  assets/logo/ravide-head-{16,24,32,48}.png  raven head only — legible at tiny sizes
+  assets/logo/ravide.ico                     Windows icon (head at ≤32 px, full mark above)
+  assets/logo/ravide-banner.jpg              README banner
+  installer/windows/assets/ravide.ico, wizard-{large,small}[@2x].bmp   Inno Setup art
 
     python tools/make_brand_assets.py
 """
 from pathlib import Path
 
-import cairosvg
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 LOGO = ROOT / "assets" / "logo"
 INST = ROOT / "installer" / "windows" / "assets"
 INST.mkdir(parents=True, exist_ok=True)
-SVG = LOGO / "hermisim-mark.svg"
+MASTER = LOGO / "ravide-logo.jpg"
 
+# Crop boxes in master-logo pixels (1408×768).
+MARK_BOX = (340, 40, 1068, 768)   # square: whole raven + ".RAV IDE"
+HEAD_BOX = (540, 78, 868, 406)    # square: raven head above the lettering
 
 STANDARD = (32, 48, 64, 128, 256, 512, 1024)
+SMALL = (16, 24, 32, 48)
+BG = (8, 10, 22)                  # logo backdrop navy
 
 
-def mark(n: int) -> Image.Image:
-    import io
-    data = cairosvg.svg2png(url=str(SVG), output_width=n, output_height=n)
-    if n in STANDARD:
-        (LOGO / f"hermisim-mark-{n}.png").write_bytes(data)
-    return Image.open(io.BytesIO(data)).convert("RGBA")
+def _master() -> Image.Image:
+    im = Image.open(MASTER).convert("RGB")
+    sx, sy = im.width / 1408, im.height / 768   # tolerate a re-exported master at another size
+    im.box = lambda b: tuple(int(v * (sx if i % 2 == 0 else sy)) for i, v in enumerate(b))  # type: ignore[attr-defined]
+    return im
+
+
+def _rounded(img: Image.Image, radius_frac: float = 0.18) -> Image.Image:
+    """Square → rounded-square tile with transparent corners."""
+    n = img.width
+    mask = Image.new("L", (n * 4, n * 4), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, n * 4 - 1, n * 4 - 1], radius=int(n * 4 * radius_frac), fill=255)
+    out = img.convert("RGBA")
+    out.putalpha(mask.resize((n, n), Image.LANCZOS))
+    return out
+
+
+def mark(im: Image.Image, n: int, *, head: bool = False, rounded: bool = True) -> Image.Image:
+    src = im.crop(im.box(HEAD_BOX if head else MARK_BOX))
+    if n < src.width // 3:  # sharpen a touch after heavy downscales so the neon lines survive
+        out = src.resize((n, n), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=0.6, percent=60, threshold=1))
+    else:
+        out = src.resize((n, n), Image.LANCZOS)
+    return _rounded(out) if rounded else out.convert("RGBA")
 
 
 def font(names, size):
@@ -35,89 +64,45 @@ def font(names, size):
     return ImageFont.load_default()
 
 
-BOLD = ["Inter-ExtraBold.otf", "Inter-Bold.otf", "DejaVuSans-Bold.ttf", "segoeuib.ttf"]
 MONO = ["DejaVuSansMono.ttf", "consola.ttf"]
-
-
-def gradient_text(img, xy, text, f, c0=(127, 243, 255), c1=(177, 77, 255)):
-    d = ImageDraw.Draw(img)
-    x0, y0, x1, y1 = d.textbbox(xy, text, font=f)
-    mask = Image.new("L", img.size, 0)
-    ImageDraw.Draw(mask).text(xy, text, font=f, fill=255)
-    grad = Image.new("RGBA", img.size)
-    gd = ImageDraw.Draw(grad)
-    for x in range(x0, x1 + 1):
-        t = (x - x0) / max(1, x1 - x0)
-        gd.line([(x, y0), (x, y1)], fill=tuple(int(c0[i] + (c1[i] - c0[i]) * t) for i in range(3)) + (255,))
-    img.paste(grad, (0, 0), mask)
-    return x1, y1
-
-
-def backdrop(w, h):
-    img = Image.new("RGBA", (w, h), (5, 7, 12, 255))
-    d = ImageDraw.Draw(img)
-    for y in range(h):
-        t = y / h
-        d.line([(0, y), (w, y)], fill=(int(7 + 6 * (1 - t)), int(10 + 10 * (1 - t)), int(18 + 22 * (1 - t)), 255))
-    grid = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(grid)
-    hz = int(h * 0.62)
-    for k in range(1, 14):
-        y = hz + int((h - hz) * (k / 13) ** 1.8)
-        gd.line([(0, y), (w, y)], fill=(0, 229, 255, 40), width=1)
-    for k in range(-12, 13):
-        gd.line([(w / 2, hz), (w / 2 + k * w / 6, h)], fill=(0, 229, 255, 34), width=1)
-    img.alpha_composite(grid)
-    return img
+GREEN = (80, 255, 140)
 
 
 def main():
+    im = _master()
     for n in STANDARD:
-        mark(n)
-    m256 = Image.open(LOGO / "hermisim-mark-256.png")
-    m256.save(LOGO / "hermisim.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-    m256.save(INST / "hermisim.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+        mark(im, n).save(LOGO / f"ravide-mark-{n}.png")
+    for n in SMALL:
+        mark(im, n, head=True).save(LOGO / f"ravide-head-{n}.png")
 
-    # wordmark
-    wm = Image.new("RGBA", (1400, 400), (0, 0, 0, 0))
-    wm.alpha_composite(mark(360), (20, 20))
-    x1, _ = gradient_text(wm, (420, 90), "HERMISIM", font(BOLD, 150))
-    ImageDraw.Draw(wm).rectangle([426, 262, x1, 266], fill=(74, 140, 255, 220))
-    ImageDraw.Draw(wm).text((426, 282), "TULPALANG · SIMULATION SUITE", font=font(MONO, 34), fill=(125, 142, 163, 255))
-    wm.save(LOGO / "hermisim-wordmark.png")
+    # .ico: Pillow picks, for each requested size, the appended image of exactly that size.
+    frames = [mark(im, n, head=True) for n in (16, 24, 32)] + [mark(im, n) for n in (48, 64, 128, 256)]
+    for dst in (LOGO / "ravide.ico", INST / "ravide.ico"):
+        frames[-1].save(dst, format="ICO", sizes=[f.size for f in frames], append_images=frames[:-1])
 
-    # README banner
-    bn = backdrop(1600, 420)
-    glow = Image.new("RGBA", bn.size, (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse([60, 40, 420, 400], fill=(0, 170, 255, 70))
-    bn.alpha_composite(glow.filter(ImageFilter.GaussianBlur(40)))
-    bn.alpha_composite(mark(340), (70, 40))
-    x1, _ = gradient_text(bn, (470, 110), "HERMISIM", font(BOLD, 140))
-    d = ImageDraw.Draw(bn)
-    d.rectangle([476, 272, x1, 275], fill=(74, 140, 255, 230))
-    d.text((476, 292), "Simulation suite & IDE for TulpaLang", font=font(BOLD[1:], 38), fill=(215, 227, 240, 255))
-    d.text((478, 346), "MuJoCo co-simulation · RTL waveforms · nn / rl / eda libraries", font=font(MONO, 24), fill=(125, 142, 163, 255))
-    bn.convert("RGB").save(LOGO / "hermisim-banner.png")
+    # README banner: the master logo, trimmed of some empty top/bottom margin.
+    im.crop(im.box((0, 24, 1408, 752))).save(LOGO / "ravide-banner.jpg", quality=90, optimize=True)
 
-    # Inno Setup wizard images (2× of 164×314 and 55×58 for HiDPI)
+    # Inno Setup wizard images (1× and 2× of 164×314 and 55×58).
     for scale in (1, 2):
         w, h = 164 * scale, 314 * scale
-        wi = backdrop(w, h)
-        g = Image.new("RGBA", wi.size, (0, 0, 0, 0))
-        ImageDraw.Draw(g).ellipse([int(w * 0.05), int(h * 0.08), int(w * 0.95), int(h * 0.5)], fill=(0, 170, 255, 60))
-        wi.alpha_composite(g.filter(ImageFilter.GaussianBlur(18 * scale)))
-        ms = int(w * 0.82)
-        wi.alpha_composite(mark(ms), ((w - ms) // 2, int(h * 0.09)))
-        f = font(BOLD, 21 * scale)
-        tw = ImageDraw.Draw(wi).textlength("HERMISIM", font=f)
-        gradient_text(wi, (int((w - tw) / 2), int(h * 0.56)), "HERMISIM", f)
-        f2 = font(MONO, 8 * scale)
-        sub = "TULPALANG SUITE"
-        ImageDraw.Draw(wi).text((int((w - ImageDraw.Draw(wi).textlength(sub, font=f2)) / 2), int(h * 0.56) + 30 * scale), sub, font=f2, fill=(0, 229, 255, 200))
+        wi = Image.new("RGBA", (w, h), BG + (255,))
+        ms = int(w * 0.94)
+        tile = mark(im, ms, rounded=False)
+        fade = Image.new("L", tile.size, 0)  # feather the crop edge into the backdrop
+        ImageDraw.Draw(fade).rectangle([6 * scale, 6 * scale, ms - 6 * scale, ms - 6 * scale], fill=255)
+        tile.putalpha(fade.filter(ImageFilter.GaussianBlur(5 * scale)))
+        wi.alpha_composite(tile, ((w - ms) // 2, int(h * 0.12)))
+        f = font(MONO, 9 * scale)
+        d = ImageDraw.Draw(wi)
+        for i, line in enumerate(("TULPALANG", "SIMULATION SUITE & IDE")):
+            tw = d.textlength(line, font=f)
+            d.text(((w - tw) / 2, int(h * 0.12) + ms + (14 + 14 * i) * scale), line, font=f, fill=GREEN + (230,))
         wi.convert("RGB").save(INST / f"wizard-large{'@2x' if scale == 2 else ''}.bmp")
-        sm = Image.new("RGBA", (55 * scale, 58 * scale), (12, 16, 22, 255))
+
+        sm = Image.new("RGBA", (55 * scale, 58 * scale), BG + (255,))
         s = 52 * scale
-        sm.alpha_composite(mark(s), ((55 * scale - s) // 2, (58 * scale - s) // 2))
+        sm.alpha_composite(mark(im, s, head=True), ((55 * scale - s) // 2, (58 * scale - s) // 2))
         sm.convert("RGB").save(INST / f"wizard-small{'@2x' if scale == 2 else ''}.bmp")
     print("brand assets written to", LOGO, "and", INST)
 

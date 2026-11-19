@@ -1,4 +1,4 @@
-"""HermiSim "Ghost Raven" theme — near-black surfaces, cyan signal, violet accent."""
+""".RAV IDE "Ghost Raven" theme — near-black surfaces, cyan signal, violet accent."""
 
 from PySide6.QtGui import QColor, QFont, QPalette
 

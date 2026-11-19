@@ -1,21 +1,24 @@
 ; ──────────────────────────────────────────────────────────────────────────────
-;  HermiSim — Windows installer (Inno Setup 6.2+)
+;  .RAV IDE (formerly HermiSim) — Windows installer (Inno Setup 6.2+)
 ;
-;    iscc installer\windows\hermisim.iss                       (after PyInstaller)
-;    iscc /DAppVersion=2.3.0 /DSignTool=signtool installer\windows\hermisim.iss
+;    iscc installer\windows\ravide.iss                         (after PyInstaller)
+;    iscc /DAppVersion=2.4.0 /DSignTool=signtool installer\windows\ravide.iss
 ;
-;  Input : dist\HermiSim\  (PyInstaller one-folder bundle, see installer\hermisim.spec)
-;  Output: dist\installer\HermiSim-Setup-<version>-x64.exe
+;  Input : dist\RAVIDE\  (PyInstaller one-folder bundle, see installer\ravide.spec)
+;  Output: dist\installer\RAVIDE-Setup-<version>-x64.exe
+;
+;  AppId is unchanged from HermiSim, so this upgrades an existing HermiSim install in place.
 ; ──────────────────────────────────────────────────────────────────────────────
 
 #ifndef AppVersion
-  #define AppVersion "2.3.0"
+  #define AppVersion "2.4.0"
 #endif
-#define AppName      "HermiSim"
+#define AppName      ".RAV IDE"
+#define AppDirName   "RAV IDE"
 #define AppPublisher "HermiTech LLC"
 #define AppURL       "https://github.com/LoQiseaking69/HermiSim-DynamicsViewer"
-#define AppExe       "HermiSim.exe"
-#define Bundle       "..\..\dist\HermiSim"
+#define AppExe       "RAVIDE.exe"
+#define Bundle       "..\..\dist\RAVIDE"
 #define ToolBin      "{app}\_internal\toolchain\bin"
 
 [Setup]
@@ -30,8 +33,8 @@ AppUpdatesURL={#AppURL}/releases
 AppCopyright=Copyright (C) HermiTech LLC
 VersionInfoVersion={#AppVersion}
 VersionInfoDescription={#AppName} Setup
-DefaultDirName={autopf}\HermiTech\{#AppName}
-DefaultGroupName=HermiTech\{#AppName}
+DefaultDirName={autopf}\HermiTech\{#AppDirName}
+DefaultGroupName=HermiTech\{#AppDirName}
 DisableProgramGroupPage=yes
 ; Per-user install by default (no UAC prompt); the dialog lets admins install for everyone.
 PrivilegesRequired=lowest
@@ -44,8 +47,8 @@ ChangesAssociations=yes
 LicenseFile=..\..\LICENSE
 InfoBeforeFile=welcome.rtf
 OutputDir=..\..\dist\installer
-OutputBaseFilename=HermiSim-Setup-{#AppVersion}-x64
-SetupIconFile=assets\hermisim.ico
+OutputBaseFilename=RAVIDE-Setup-{#AppVersion}-x64
+SetupIconFile=assets\ravide.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName} {#AppVersion}
 Compression=lzma2/ultra64
@@ -73,16 +76,16 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 [Messages]
 en.WelcomeLabel1=Welcome to [name]
 en.WelcomeLabel2=This will install [name/ver] — the simulation suite and IDE for TulpaLang.%n%nWrite robot software with physical units, contracts and state machines, then fly it against MuJoCo physics, cycle-accurate RTL models and real hardware.%n%nIncludes the Tulpa toolchain (compiler, VM, LSP, std/ libraries) and the Morty bipedal humanoid sample.
-en.FinishedHeadingLabel=HermiSim is ready
-en.FinishedLabel=[name] has been installed. Your editable projects live in Documents\HermiSim.
+en.FinishedHeadingLabel=.RAV IDE is ready
+en.FinishedLabel=[name] has been installed. Your editable projects live in Documents\RAV IDE (or your existing Documents\HermiSim folder).
 
 [CustomMessages]
-en.CompCore=HermiSim IDE and MuJoCo simulator
+en.CompCore=.RAV IDE and MuJoCo simulator
 en.CompTulpa=Tulpa toolchain (tulpa compiler, VM, language server, std/ libraries)
 en.CompVSCode=TulpaLang extension for Visual Studio Code (if VS Code is installed)
 en.TaskDesktop=Create a &desktop shortcut
 en.TaskPath=Add the &tulpa command to PATH
-en.TaskAssoc=Open &.rav / .tlp TulpaLang files with HermiSim
+en.TaskAssoc=Open &.rav / .tlp TulpaLang files with .RAV IDE
 en.GroupIntegration=System integration:
 en.LaunchMorty=Open the Morty sample project
 en.Uninstalling=Removing tulpa from PATH...
@@ -103,33 +106,46 @@ Name: "assoc";       Description: "{cm:TaskAssoc}";   GroupDescription: "{cm:Gro
 
 [Files]
 Source: "{#Bundle}\*"; DestDir: "{app}"; Components: core; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "assets\hermisim.ico"; DestDir: "{app}"; Components: core; Flags: ignoreversion
+Source: "assets\ravide.ico"; DestDir: "{app}"; Components: core; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppName}";               Filename: "{app}\{#AppExe}"; IconFilename: "{app}\hermisim.ico"; Comment: "Simulation suite & IDE for TulpaLang"
-Name: "{autoprograms}\{#AppName} (classic viewer)"; Filename: "{app}\{#AppExe}"; Parameters: "--classic"; IconFilename: "{app}\hermisim.ico"
-Name: "{autodesktop}\{#AppName}";                Filename: "{app}\{#AppExe}"; IconFilename: "{app}\hermisim.ico"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}";               Filename: "{app}\{#AppExe}"; IconFilename: "{app}\ravide.ico"; Comment: "Simulation suite & IDE for TulpaLang"
+Name: "{autoprograms}\{#AppName} (classic viewer)"; Filename: "{app}\{#AppExe}"; Parameters: "--classic"; IconFilename: "{app}\ravide.ico"
+Name: "{autodesktop}\{#AppName}";                Filename: "{app}\{#AppExe}"; IconFilename: "{app}\ravide.ico"; Tasks: desktopicon
 
 [Registry]
-; .rav / .tlp → HermiSim (per-user or machine, following the install mode)
-Root: HKA; Subkey: "Software\Classes\.rav";  ValueType: string; ValueName: ""; ValueData: "HermiSim.TulpaSource"; Flags: uninsdeletevalue; Tasks: assoc
-Root: HKA; Subkey: "Software\Classes\.tlp";  ValueType: string; ValueName: ""; ValueData: "HermiSim.TulpaSource"; Flags: uninsdeletevalue; Tasks: assoc
-Root: HKA; Subkey: "Software\Classes\HermiSim.TulpaSource"; ValueType: string; ValueName: ""; ValueData: "TulpaLang source"; Flags: uninsdeletekey; Tasks: assoc
-Root: HKA; Subkey: "Software\Classes\HermiSim.TulpaSource\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\hermisim.ico,0"; Tasks: assoc
-Root: HKA; Subkey: "Software\Classes\HermiSim.TulpaSource\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: assoc
+; .rav / .tlp → .RAV IDE (per-user or machine, following the install mode)
+Root: HKA; Subkey: "Software\Classes\.rav";  ValueType: string; ValueName: ""; ValueData: "RAVIDE.TulpaSource"; Flags: uninsdeletevalue; Tasks: assoc
+Root: HKA; Subkey: "Software\Classes\.tlp";  ValueType: string; ValueName: ""; ValueData: "RAVIDE.TulpaSource"; Flags: uninsdeletevalue; Tasks: assoc
+Root: HKA; Subkey: "Software\Classes\RAVIDE.TulpaSource"; ValueType: string; ValueName: ""; ValueData: "TulpaLang source"; Flags: uninsdeletekey; Tasks: assoc
+Root: HKA; Subkey: "Software\Classes\RAVIDE.TulpaSource\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\ravide.ico,0"; Tasks: assoc
+Root: HKA; Subkey: "Software\Classes\RAVIDE.TulpaSource\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: assoc
+; remove HermiSim-era registrations
+Root: HKA; Subkey: "Software\Classes\HermiSim.TulpaSource"; Flags: deletekey dontcreatekey
+Root: HKA; Subkey: "Software\Classes\Applications\HermiSim.exe"; Flags: deletekey dontcreatekey
+Root: HKA; Subkey: "Software\HermiTech\HermiSim"; Flags: deletekey dontcreatekey
 Root: HKA; Subkey: "Software\Classes\Applications\{#AppExe}\SupportedTypes"; ValueType: string; ValueName: ".rav"; ValueData: ""; Flags: uninsdeletekey
 ; let the IDE find the bundled toolchain even when PATH wasn't touched
-Root: HKA; Subkey: "Software\HermiTech\HermiSim"; ValueType: string; ValueName: "InstallDir"; ValueData: "{app}"; Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\HermiTech\HermiSim"; ValueType: string; ValueName: "TulpaBin"; ValueData: "{#ToolBin}\tulpa.exe"
+Root: HKA; Subkey: "Software\HermiTech\RAV IDE"; ValueType: string; ValueName: "InstallDir"; ValueData: "{app}"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\HermiTech\RAV IDE"; ValueType: string; ValueName: "TulpaBin"; ValueData: "{#ToolBin}\tulpa.exe"
 
 [Run]
 Filename: "{cmd}"; Parameters: "/c code --install-extension ""{app}\_internal\toolchain\share\tulpa-lang.vsix"" --force"; Description: "{cm:CompVSCode}"; Flags: postinstall runhidden waituntilterminated skipifsilent; Check: HasVSCode and HasVsix
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\{#AppExe}"; Parameters: "morty"; Description: "{cm:LaunchMorty}"; Flags: nowait postinstall skipifsilent unchecked
 
+[InstallDelete]
+; upgrading a HermiSim install: drop the old executables, icon and shortcuts
+Type: files; Name: "{app}\HermiSim.exe"
+Type: files; Name: "{app}\hermisim-cli.exe"
+Type: files; Name: "{app}\hermisim.ico"
+Type: files; Name: "{autoprograms}\HermiSim.lnk"
+Type: files; Name: "{autoprograms}\HermiSim (classic viewer).lnk"
+Type: files; Name: "{autodesktop}\HermiSim.lnk"
+
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\_internal\__pycache__"
-Type: filesandordirs; Name: "{localappdata}\HermiSim\state"
+Type: filesandordirs; Name: "{localappdata}\RAV IDE\state"
 
 [Code]
 const

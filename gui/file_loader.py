@@ -20,7 +20,7 @@ _DEFAULT_MODEL = Path(__file__).resolve().parent.parent / "models" / "starter_mo
 _STATE_DIR = Path(__file__).resolve().parent.parent / ".state"
 if getattr(__import__("sys"), "frozen", False):
     import os as _os
-    _STATE_DIR = Path(_os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "state") / "HermiSim" / "state"
+    _STATE_DIR = Path(_os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "state") / "RAV IDE" / "state"
 
 
 class FileLoader:
