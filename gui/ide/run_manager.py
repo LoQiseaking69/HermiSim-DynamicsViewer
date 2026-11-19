@@ -27,6 +27,8 @@ KINDS = {
     "build": "Build Native (LLVM)",
     "native": "Run Natively (LLVM executable)",
     "firmware": "Build Firmware",
+    "vm": "Run on the Firmware VM",
+    "bridge": "Link Bridge to Board",
     "prove": "Prove Contracts",
     "bundle": "Bundle Standalone Executable",
     "deploy": "Deploy to Board",
@@ -104,6 +106,14 @@ class RunManager(QObject):
             # compile the whole program to a host executable on the simulated bus, then run it
             exe = toolchain.native_exe_name(path)
             argv = ["build", str(path), "--target", "sim", "--exe", "-o", str(exe)]
+        elif cfg.kind == "vm":
+            # the Tulpa VM for firmware (tulpa_dyn.c), built for the simulated board: exactly
+            # what a microcontroller runs when the program is outside the static native subset
+            exe = toolchain.vm_exe_name(path)
+            argv = ["build", str(path), "--target", "sim", "--exe", "--dynamic", "-o", str(exe)]
+        elif cfg.kind == "bridge":
+            # `file` is the serial port; runs until stopped
+            argv = ["link", "bridge", cfg.file, *cfg.args]
         elif cfg.kind == "firmware":
             target = cfg.target or "rp2040"
             out = path.with_name(f"{path.stem}-{target}.o")
@@ -156,8 +166,9 @@ class RunManager(QObject):
         code = proc.wait() if proc else -1
         time.sleep(0.05)                       # let stdout pumps drain
         cfg = self.last_config
-        if code == 0 and cfg is not None and cfg.kind == "native" and proc is not None and proc.program is None:
-            exe = toolchain.native_exe_name(Path(cfg.file).resolve())
+        if code == 0 and cfg is not None and cfg.kind in ("native", "vm") and proc is not None and proc.program is None:
+            name = toolchain.native_exe_name if cfg.kind == "native" else toolchain.vm_exe_name
+            exe = name(Path(cfg.file).resolve())
             self.stdout.emit(f"── running {exe.name}")
             self.proc = TulpaProcess(proc.tc, list(cfg.args), cwd=proc.cwd, program=str(exe),
                                      on_stdout=self.stdout.emit, on_stderr=self.stderr.emit,

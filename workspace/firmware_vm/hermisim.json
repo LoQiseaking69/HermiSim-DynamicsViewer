@@ -1,0 +1,29 @@
+{
+  "name": "Firmware VM lab",
+  "description": "Tulpa 3.5: the whole language on a microcontroller. One program with a behaviour tree, a state machine and a Tulpa Link node, run on the interpreter, on the Tulpa VM for firmware, and built for a Pico.",
+  "entry": "rover.rav",
+  "run_configurations": [
+    {
+      "name": "Rover: interpreter",
+      "kind": "run",
+      "file": "rover.rav"
+    },
+    {
+      "name": "Rover: on the firmware VM",
+      "kind": "vm",
+      "file": "rover.rav"
+    },
+    {
+      "name": "Rover: firmware for a Pico (RP2040)",
+      "kind": "firmware",
+      "file": "rover.rav",
+      "target": "rp2040"
+    },
+    {
+      "name": "Rover: firmware for an ESP32-C3",
+      "kind": "firmware",
+      "file": "rover.rav",
+      "target": "esp32c3"
+    }
+  ]
+}

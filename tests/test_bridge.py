@@ -226,3 +226,47 @@ def test_network_panel_shows_udp_nodes(tmp_path, qtbot):
     finally:
         proc.kill()
         proc.wait()
+
+
+@needs_tulpa
+def test_run_on_the_firmware_vm(tmp_path, qtbot):
+    """The `vm` run kind builds a program outside the static subset onto the Tulpa VM for firmware
+    and runs it; the same program builds as firmware for a board (Tulpa 3.5)."""
+    import shutil
+    if not toolchain.help_mentions(TC, "--dynamic") or shutil.which("clang") is None:
+        pytest.skip("needs Tulpa 3.5+ and clang")
+    from gui.ide.run_manager import RunConfig, RunManager
+    src = tmp_path / "plan.rav"
+    src.write_text(
+        "let jobs = {\"a\": 2, \"b\": 3}\n"
+        "let double = |x| x * 2\n"
+        "let total = 0\n"
+        "for k, v in jobs { total += double(v) }\n"
+        "try { error(\"boom\") } catch e { print(\"caught\", e, total) }\n"
+    )
+    rm = RunManager(simulation=None)
+    rm.tc = TC
+    out: list[str] = []
+    err: list[str] = []
+    rm.stdout.connect(out.append)
+    rm.stderr.connect(err.append)
+    with qtbot.waitSignal(rm.finished, timeout=180_000) as blocker:
+        assert rm.start(RunConfig(name="v", kind="vm", file=str(src), cwd=str(tmp_path)))
+    assert blocker.args[0] == 0, err
+    assert "caught boom 10" in out
+    assert toolchain.vm_exe_name(src).is_file()
+
+    err.clear()
+    with qtbot.waitSignal(rm.finished, timeout=180_000) as blocker:
+        assert rm.start(RunConfig(name="f", kind="firmware", file=str(src), cwd=str(tmp_path), target="rp2040"))
+    assert blocker.args[0] == 0, err
+    assert any("dynamic tier" in line for line in err), err
+
+
+def test_firmware_vm_lab_is_bundled():
+    import json
+    root = Path(__file__).resolve().parent.parent / "workspace" / "firmware_vm"
+    project = json.loads((root / "hermisim.json").read_text())
+    kinds = {c["kind"] for c in project["run_configurations"]}
+    assert {"run", "vm", "firmware"} <= kinds
+    assert (root / project["entry"]).is_file()

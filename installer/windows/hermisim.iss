@@ -2,14 +2,14 @@
 ;  HermiSim — Windows installer (Inno Setup 6.2+)
 ;
 ;    iscc installer\windows\hermisim.iss                       (after PyInstaller)
-;    iscc /DAppVersion=2.2.0 /DSignTool=signtool installer\windows\hermisim.iss
+;    iscc /DAppVersion=2.3.0 /DSignTool=signtool installer\windows\hermisim.iss
 ;
 ;  Input : dist\HermiSim\  (PyInstaller one-folder bundle, see installer\hermisim.spec)
 ;  Output: dist\installer\HermiSim-Setup-<version>-x64.exe
 ; ──────────────────────────────────────────────────────────────────────────────
 
 #ifndef AppVersion
-  #define AppVersion "2.2.0"
+  #define AppVersion "2.3.0"
 #endif
 #define AppName      "HermiSim"
 #define AppPublisher "HermiTech LLC"

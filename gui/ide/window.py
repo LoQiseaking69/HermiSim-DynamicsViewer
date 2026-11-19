@@ -89,6 +89,7 @@ class WelcomePage(QScrollArea):
         lay.addLayout(hero)
         acts = QHBoxLayout()
         for label, key, primary in [("Open Morty project", "morty", True), ("Open Autonomy lab", "autonomy", False),
+                                    ("Open Firmware VM lab", "firmware_vm", False),
                                     ("New Tulpa file", "new", False),
                                     ("Open folder…", "folder", False), ("Open model…", "model", False),
                                     ("New firmware project…", "firmware", False), ("Language guide", "guide", False)]:
@@ -364,9 +365,14 @@ class IdeWindow(QMainWindow):
                   tip="Compile the whole program with tulpa build --target sim --exe and run it")
         self._act(r, "Build Firmware for Board…", self.build_firmware, "Ctrl+Shift+B",
                   tip="tulpa build --target rp2040 / esp32 / esp32c3 / …")
+        self._act(r, "Run on the Firmware VM", lambda: self.run_kind("vm"), "Ctrl+Alt+F5",
+                  tip="Build the program onto the Tulpa VM for firmware (tulpa build --target sim --exe --dynamic) "
+                      "and run it: exactly what a microcontroller runs when the program is outside the static subset")
         self._act(r, "New Firmware Project…", self.new_firmware_project)
         self._act(r, "Deploy Project to Board…", self.deploy_project,
                   tip="tulpa deploy: prove, check on the simulator, build with the board SDK, flash")
+        self._act(r, "Link Bridge to Board…", self.link_bridge,
+                  tip="tulpa link bridge: join a board whose Tulpa Link node uses a UART to the network (Linux)")
         self._act(r, "Bundle Standalone Executable", lambda: self.run_kind("bundle"),
                   tip="tulpa bundle: one executable with the whole language, for desktops and Linux boards")
         r.addSeparator()
@@ -535,6 +541,9 @@ class IdeWindow(QMainWindow):
         elif key == "autonomy":
             self.open_project(str(userdata.workspace() / "autonomy"))
             self.open_file(str(userdata.workspace() / "autonomy" / "safety.rav"))
+        elif key == "firmware_vm":
+            self.open_project(str(userdata.workspace() / "firmware_vm"))
+            self.open_file(str(userdata.workspace() / "firmware_vm" / "rover.rav"))
         elif key == "new":
             self.new_file()
         elif key == "folder":
@@ -857,6 +866,26 @@ class IdeWindow(QMainWindow):
                 args = ["--host" if "@" in port else "--port", port]
         self.start(RunConfig(name="deploy", kind="deploy", file=str(root / "app.rav"), args=args, cwd=str(root)))
 
+    def link_bridge(self) -> None:
+        """`tulpa link bridge PORT`: runs until stopped; the board's node then shows in the Network dock."""
+        tc = self.runs.ensure_toolchain()
+        if tc is None or not toolchain.help_mentions(tc, "tulpa link bridge"):
+            self.console.append("the link bridge needs Tulpa 3.5 or newer (Settings ▸ Toolchain)", "warn")
+            return
+        last = self.settings.value("bridge/port", "/dev/ttyUSB0")
+        port, ok = QInputDialog.getText(self, "Link bridge", "Serial port of the board:", text=str(last))
+        port = port.strip()
+        if not ok or not port:
+            return
+        baud, ok = QInputDialog.getInt(self, "Link bridge", "Baud rate:", int(self.settings.value("bridge/baud", 115200)), 1200, 4_000_000)
+        if not ok:
+            return
+        self.settings.setValue("bridge/port", port)
+        self.settings.setValue("bridge/baud", baud)
+        self.start(RunConfig(name="bridge", kind="bridge", file=port, args=["--baud", str(baud)],
+                             cwd=str(self.project_dir or Path.home())))
+        self.d_network.raise_()
+
     def run_kind(self, kind: str, target: Optional[str] = None) -> None:
         ed = self.editor()
         if ed is None:
@@ -1068,7 +1097,7 @@ class IdeWindow(QMainWindow):
         QMessageBox.about(self, "About HermiSim",
                           "<h3>HermiSim IDE</h3><p>Simulation suite and development environment for TulpaLang.</p>"
                           f"<p>{self.runs.tc.version if self.runs.tc else 'tulpa not found'} · MuJoCo physics · PySide6</p>"
-                          "<p>© HermiTech — BSD 3-Clause</p>")
+                          "<p>© HermiTech LLC — Business Source License 1.1</p>")
 
     def closeEvent(self, e) -> None:  # noqa: N802
         dirty = [ed for ed in self.editors() if ed.document().isModified()]

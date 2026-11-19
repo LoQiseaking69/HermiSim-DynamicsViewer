@@ -115,6 +115,11 @@ def native_exe_name(source: Path) -> Path:
     return source.with_name(source.stem + ("-native.exe" if os.name == "nt" else "-native"))
 
 
+def vm_exe_name(source: Path) -> Path:
+    """Where Run on the Firmware VM puts the executable for ``source``."""
+    return source.with_name(source.stem + ("-vm.exe" if os.name == "nt" else "-vm"))
+
+
 def prove(tc: Toolchain, source: "str | Path", strict: bool = False, timeout: float = 120) -> Optional[dict]:
     """`tulpa prove --json FILE` as a dict: {file, proved, refuted, unproved, skipped, obligations}.
 
@@ -154,6 +159,15 @@ def parse_link_graph(text: str) -> list[dict]:
             if kind in keys:
                 nodes[-1][keys[kind]].append(topic.strip())
     return nodes
+
+
+def help_mentions(tc: Toolchain, text: str) -> bool:
+    """Is ``text`` in `tulpa --help`? (e.g. "tulpa link bridge" and "--dynamic" arrived in Tulpa 3.5)"""
+    try:
+        r = tc.run("--help", timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return text in (r.stdout + r.stderr)
 
 
 def has_command(tc: Toolchain, name: str) -> bool:
