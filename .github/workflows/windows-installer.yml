@@ -3,9 +3,9 @@ name: windows-installer
 # Builds the Windows installer, signs it with Microsoft Artifact Signing when configured, and
 # publishes it to the GitHub Releases page.
 #
-#   * push a tag  v2.3.0            → build, sign, publish release ".RAV IDE 2.3.0"
+#   * push a tag  v2.4.0            → build, sign, publish release ".RAV IDE 2.4.0"
 #   * Actions ▸ windows-installer ▸ Run workflow
-#       version  2.3.0, publish ✔    → same, the tag is created on the selected commit
+#       version  2.4.0, publish ✔    → same, the tag is created on the selected commit
 #       publish ✘                    → build (and sign) only; installer is a workflow artifact
 #
 # Signing turns on automatically once these repository secrets exist (Settings ▸ Secrets and
@@ -23,9 +23,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version (e.g. 2.3.0)"
+        description: "Version (e.g. 2.4.0)"
         required: true
-        default: "2.3.0"
+        default: "2.4.0"
       publish:
         description: "Publish a GitHub release (creates tag v<version>)"
         type: boolean

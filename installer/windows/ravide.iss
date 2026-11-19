@@ -2,7 +2,7 @@
 ;  .RAV IDE (formerly HermiSim) — Windows installer (Inno Setup 6.2+)
 ;
 ;    iscc installer\windows\ravide.iss                         (after PyInstaller)
-;    iscc /DAppVersion=2.3.0 /DSignTool=signtool installer\windows\ravide.iss
+;    iscc /DAppVersion=2.4.0 /DSignTool=signtool installer\windows\ravide.iss
 ;
 ;  Input : dist\RAVIDE\  (PyInstaller one-folder bundle, see installer\ravide.spec)
 ;  Output: dist\installer\RAVIDE-Setup-<version>-x64.exe
@@ -11,7 +11,7 @@
 ; ──────────────────────────────────────────────────────────────────────────────
 
 #ifndef AppVersion
-  #define AppVersion "2.3.0"
+  #define AppVersion "2.4.0"
 #endif
 #define AppName      ".RAV IDE"
 #define AppDirName   "RAV IDE"

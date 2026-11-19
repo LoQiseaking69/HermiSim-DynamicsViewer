@@ -68,7 +68,7 @@ Add these under *Repository ▸ Settings ▸ Secrets and variables ▸ Actions �
 ## 4. Release
 
 ```bash
-git tag v2.3.0 && git push origin v2.3.0
+git tag v2.4.0 && git push origin v2.4.0
 ```
 
 Alternatively, go to *Actions ▸ windows-installer ▸ Run workflow*, set the version and tick
