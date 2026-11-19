@@ -53,10 +53,18 @@ plan = [(1500, shot("01_editor")), (100, run_cfg(2)), (9000, lambda: w.d_plots.r
         (200, w.runs.stop), (1500, run_cfg(5)), (9000, open_vcd), (800, shot("03_vcd")),
         (200, machines), (800, shot("04_machines")), (300, lambda: w.open_file(str(root / "workspace" / "morty" / "out" / "morty_bom.csv"))),
         (500, shot("05_bom")), (200, w.show_welcome), (500, shot("00_welcome")), (300, app.quit)]
-t = 0
-for dt, fn in plan:
-    t += dt
-    QTimer.singleShot(t, fn)
+# Run the plan as a chain (each step is scheduled only after the previous one ran). Absolute
+# timers misfire when a step blocks: shot()'s processEvents() would run overdue later steps,
+# e.g. show_welcome before the BOM screenshot is grabbed.
+
+
+def step(i=0):
+    if i < len(plan):
+        dt, fn = plan[i]
+        QTimer.singleShot(dt, lambda: (fn(), step(i + 1)))
+
+
+step()
 app.exec()
 print("problems:", w.problems.count(), "series:", len(w.plots.series))
 os._exit(0)
