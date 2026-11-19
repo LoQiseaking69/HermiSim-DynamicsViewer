@@ -1,13 +1,13 @@
 # Code-signing the Windows release
 
-HermiSim releases are signed with **Microsoft Artifact Signing** (formerly Trusted Signing). It's
+.RAV IDE releases are signed with **Microsoft Artifact Signing** (formerly Trusted Signing). It's
 Microsoft's managed code-signing service: the private key lives in Microsoft's HSMs, a short-lived
 certificate is issued for each signing, and every signature is timestamped, so signed releases stay
 valid after the certificate expires.
 
 The `windows-installer` workflow signs four things:
-- `HermiSim.exe`
-- `hermisim-cli.exe`
+- `RAVIDE.exe`
+- `ravide-cli.exe`
 - `tulpa.exe`
 - the setup executable and its embedded uninstaller
 
@@ -76,7 +76,7 @@ Alternatively, go to *Actions ▸ windows-installer ▸ Run workflow*, set the v
 1. builds the installer
 2. signs it
 3. verifies the signatures
-4. creates the `v<version>` tag and the **HermiSim <version>** release, with the installer and its
+4. creates the `v<version>` tag and the **.RAV IDE <version>** release, with the installer and its
    SHA-256 attached
 
 The install page is <https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/releases/latest>.
@@ -93,7 +93,7 @@ powershell -File installer\windows\build.ps1 -Sign
 
 ## SmartScreen
 
-A signed installer shows **HermiSim / your name** as the publisher instead of "Unknown publisher".
+A signed installer shows **.RAV IDE / your name** as the publisher instead of "Unknown publisher".
 The *Windows protected your PC* screen can still appear for the first few weeks: SmartScreen
 reputation builds up per certificate identity as people download and run the installer. Since
 2024, no certificate type, EV included, skips that warm-up.
@@ -102,7 +102,7 @@ reputation builds up per certificate identity as people download and run the ins
 
 - **SignPath Foundation:** free for open-source projects. The certificate is issued to SignPath
   Foundation, so it is shown as the publisher. It needs an OSI license and public source for
-  everything that gets signed. HermiSim bundles `tulpa.exe` built from the **private** TulpaLang
+  everything that gets signed. .RAV IDE bundles `tulpa.exe` built from the **private** TulpaLang
   repo, so the project only qualifies if TulpaLang is made public.
 - **Commercial OV certificate with cloud key storage**, such as SSL.com eSigner, DigiCert KeyLocker
   or Sectigo. It costs roughly $200–400 a year and works from any country. To use one, replace the

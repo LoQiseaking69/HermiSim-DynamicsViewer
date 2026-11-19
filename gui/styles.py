@@ -1,4 +1,4 @@
-"""HermiSim visual theme — refined dark palette with accent highlights."""
+""".RAV IDE classic-viewer visual theme — refined dark palette with accent highlights."""
 
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtCore import Qt
@@ -23,7 +23,7 @@ _WARNING      = "#d29922"
 
 
 def apply_styles(app) -> None:
-    """Apply the HermiSim dark palette and stylesheet to *app*."""
+    """Apply the .RAV IDE dark palette and stylesheet to *app*."""
 
     # -- Font ---------------------------------------------------------------
     font = QFont("Segoe UI", 10)

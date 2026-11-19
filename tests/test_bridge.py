@@ -1,4 +1,4 @@
-"""Tulpa ↔ HermiSim bridge: telemetry parsing, VCD parsing, and a real co-simulation run."""
+"""Tulpa ↔ .RAV IDE bridge: telemetry parsing, VCD parsing, and a real co-simulation run."""
 import os
 from pathlib import Path
 
@@ -266,7 +266,7 @@ def test_run_on_the_firmware_vm(tmp_path, qtbot):
 def test_firmware_vm_lab_is_bundled():
     import json
     root = Path(__file__).resolve().parent.parent / "workspace" / "firmware_vm"
-    project = json.loads((root / "hermisim.json").read_text())
+    project = json.loads((root / "ravide.json").read_text())
     kinds = {c["kind"] for c in project["run_configurations"]}
     assert {"run", "vm", "firmware"} <= kinds
     assert (root / project["entry"]).is_file()

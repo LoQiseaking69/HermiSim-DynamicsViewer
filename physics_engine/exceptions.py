@@ -1,4 +1,4 @@
-"""Custom exceptions for the HermiSim physics engine."""
+"""Custom exceptions for the .RAV IDE physics engine."""
 
 
 class PhysicsEngineError(Exception):

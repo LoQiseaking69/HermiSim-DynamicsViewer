@@ -1,4 +1,4 @@
-"""HermiSim IDE main window — TulpaLang editor + MuJoCo simulator in one workspace."""
+""".RAV IDE main window — TulpaLang editor + MuJoCo simulator in one workspace."""
 
 from __future__ import annotations
 
@@ -69,12 +69,12 @@ class WelcomePage(QScrollArea):
         lay.setSpacing(18)
         hero = QHBoxLayout()
         logo = QLabel()
-        pm = QPixmap(str(ASSETS / "logo" / "hermisim-mark-256.png"))
+        pm = QPixmap(str(ASSETS / "logo" / "ravide-mark-256.png"))
         if not pm.isNull():
             logo.setPixmap(pm.scaled(128, 128, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         hero.addWidget(logo)
         txt = QVBoxLayout()
-        t = QLabel("HermiSim")
+        t = QLabel(".RAV IDE")
         t.setObjectName("heroTitle")
         s = QLabel("Simulation suite & IDE for TulpaLang — write robot software with units, contracts and "
                    "state machines, then fly it against MuJoCo physics, RTL models and real hardware.")
@@ -205,9 +205,10 @@ class IdeWindow(QMainWindow):
     def __init__(self, project: Optional[str] = None) -> None:
         super().__init__()
         from physics_engine.simulation import Simulation
+        # settings key kept from the HermiSim era so existing preferences carry over
         self.settings = QSettings("HermiTech", "HermiSim")
-        self.setWindowTitle("HermiSim IDE — TulpaLang")
-        icon = ASSETS / "logo" / "hermisim.ico"
+        self.setWindowTitle(".RAV IDE — TulpaLang")
+        icon = ASSETS / "logo" / "ravide.ico"
         if icon.exists():
             self.setWindowIcon(QIcon(str(icon)))
         self.resize(1600, 980)
@@ -294,9 +295,9 @@ class IdeWindow(QMainWindow):
             project = str(userdata.workspace() / "morty")
         if project and Path(project).is_file():
             # launched by double-clicking a .rav/.tlp file: open its project (nearest
-            # hermisim.json up the tree, else its folder), then the file itself
+            # ravide.json up the tree, else its folder), then the file itself
             f = Path(project).resolve()
-            root = next((d for d in f.parents if (d / "hermisim.json").is_file()), f.parent)
+            root = next((d for d in f.parents if toolchain.project_file(d)), f.parent)
             self.open_project(str(root), show_welcome=False)
             self.open_file(str(f))
         elif project:
@@ -411,7 +412,7 @@ class IdeWindow(QMainWindow):
         self._act(h, "Driver SDK", lambda: self._open_doc("drivers.md"))
         self._act(h, "Native && Embedded Targets", lambda: self._open_doc("embedded.md"))
         self._act(h, "Diagnostics (toolchain, 3-D, co-sim)…", self.doctor)
-        self._act(h, "About HermiSim", self.about)
+        self._act(h, "About .RAV IDE", self.about)
 
         tb = self.addToolBar("Run")
         tb.setObjectName("runbar")
@@ -511,8 +512,8 @@ class IdeWindow(QMainWindow):
             if not base.is_dir():
                 continue
             for p in sorted(base.iterdir()):
-                f = p / "hermisim.json"
-                if f.is_file():
+                f = toolchain.project_file(p)
+                if f:
                     try:
                         d = json.loads(f.read_text())
                         d["dir"] = str(p)
@@ -559,14 +560,14 @@ class IdeWindow(QMainWindow):
 
     def open_project(self, path: str, show_welcome: bool = True) -> None:
         p = Path(path)
-        cfg = p / "hermisim.json"
+        cfg = toolchain.project_file(p)
         self.project_dir = str(p)
-        self.project = json.loads(cfg.read_text()) if cfg.is_file() else {"name": p.name}
+        self.project = json.loads(cfg.read_text()) if cfg else {"name": p.name}
         self.tree.set_root(str(p), self.project.get("name"))
         self.console.base_dir = str(p)
         self.terminal.start(str(p))
         self.settings.setValue("project/last", str(p))
-        self.setWindowTitle(f"{self.project.get('name', p.name)} — HermiSim IDE")
+        self.setWindowTitle(f"{self.project.get('name', p.name)} — .RAV IDE")
         model = self.project.get("model")
         if model:
             mp = (p / model).resolve()
@@ -1057,7 +1058,7 @@ class IdeWindow(QMainWindow):
             QApplication.restoreOverrideCursor()
         mark = lambda ok: "OK  " if ok else "FAIL"  # noqa: E731
         report = (
-            f"HermiSim diagnostics\n"
+            f".RAV IDE diagnostics\n"
             f"platform: {platform.platform()}  python {platform.python_version()}\n"
             f"tulpa:    {tc.binary if tc else 'NOT FOUND'}  ({tc.version if tc else '-'})\n"
             f"stdlib:   {tc.stdlib if tc else '-'}\n"
@@ -1094,8 +1095,9 @@ class IdeWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl("https://github.com/LoQiseaking69/TulpaLang/tree/main/docs"))
 
     def about(self) -> None:
-        QMessageBox.about(self, "About HermiSim",
-                          "<h3>HermiSim IDE</h3><p>Simulation suite and development environment for TulpaLang.</p>"
+        QMessageBox.about(self, "About .RAV IDE",
+                          "<h3>.RAV IDE</h3><p>Simulation suite and development environment for TulpaLang "
+                          "(formerly HermiSim).</p>"
                           f"<p>{self.runs.tc.version if self.runs.tc else 'tulpa not found'} · MuJoCo physics · PySide6</p>"
                           "<p>© HermiTech LLC — Business Source License 1.1</p>")
 

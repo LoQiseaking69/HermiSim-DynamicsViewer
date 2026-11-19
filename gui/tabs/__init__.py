@@ -1,1 +1,1 @@
-"""HermiSim GUI tab components."""
+""".RAV IDE GUI tab components."""

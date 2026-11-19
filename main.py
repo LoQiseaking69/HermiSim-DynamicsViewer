@@ -1,4 +1,4 @@
-"""HermiSim — simulation suite and IDE for TulpaLang.
+""".RAV IDE (formerly HermiSim) — simulation suite and IDE for TulpaLang.
 
     python main.py                      # IDE (default)
     python main.py workspace/morty      # open a project
@@ -43,7 +43,7 @@ else:
 
 def _data_dir() -> pathlib.Path:
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_STATE_HOME") or str(pathlib.Path.home() / ".local" / "state")
-    d = pathlib.Path(base) / "HermiSim"
+    d = pathlib.Path(base) / "RAV IDE"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -53,7 +53,7 @@ def _configure_logging() -> None:
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     try:
-        fh = RotatingFileHandler(_data_dir() / "hermisim.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+        fh = RotatingFileHandler(_data_dir() / "ravide.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
         fh.setFormatter(fmt)
         root.addHandler(fh)
     except OSError:
@@ -65,7 +65,7 @@ def _configure_logging() -> None:
 
 
 def main() -> None:
-    # Headless co-simulation CLI: `HermiSim run prog.rav --model m.xml` / `hermisim-cli exec prog.rav`
+    # Headless co-simulation CLI: `RAVIDE run prog.rav --model m.xml` / `ravide-cli exec prog.rav`
     if len(sys.argv) > 1 and sys.argv[1] in ("run", "exec", "doctor"):
         from tulpa_bridge.runner import main as cli_main
         sys.exit(cli_main(sys.argv[1:]))
@@ -75,9 +75,9 @@ def main() -> None:
 
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     app = QApplication(sys.argv)
-    app.setApplicationName("HermiSim")
+    app.setApplicationName(".RAV IDE")
     app.setOrganizationName("HermiTech")
-    icon = pathlib.Path(__file__).resolve().parent / "assets" / "logo" / "hermisim.ico"
+    icon = pathlib.Path(__file__).resolve().parent / "assets" / "logo" / "ravide.ico"
     if icon.exists():
         app.setWindowIcon(QIcon(str(icon)))
 
@@ -92,7 +92,7 @@ def main() -> None:
         theme.apply(app)
         window = IdeWindow(project=args[0] if args else None)
     window.show()
-    logging.getLogger(__name__).info("HermiSim started")
+    logging.getLogger(__name__).info(".RAV IDE started")
     sys.exit(app.exec())
 
 
