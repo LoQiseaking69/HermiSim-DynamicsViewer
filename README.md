@@ -76,7 +76,7 @@ cd workspace/morty && tulpa fpga/testbench.rav && tulpa board/motherboard.rav &&
 
 ### Windows
 
-**[⬇ Download the latest installer](https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/releases/latest)**:
+**[⬇ Download the latest installer](https://github.com/LoQiseaking69/.RAV_IDE/releases/latest)**:
 `RAVIDE-Setup-<version>-x64.exe`. The installer:
 - bundles the IDE, MuJoCo and the Tulpa toolchain
 - can add `tulpa` to `PATH` and associate `.rav`/`.tlp` files
@@ -92,10 +92,10 @@ whether it is code-signed; see [code signing](installer/windows/SIGNING.md).
 ### From source (Linux, macOS, Windows)
 
 ```bash
-git clone https://github.com/LoQiseaking69/HermiSim-DynamicsViewer.git
+git clone https://github.com/LoQiseaking69/.RAV_IDE.git rav-ide
 git clone https://github.com/LoQiseaking69/TulpaLang.git
 (cd TulpaLang && cargo build --release)          # .RAV IDE finds ../TulpaLang/target/release/tulpa
-cd HermiSim-DynamicsViewer
+cd rav-ide
 pip install -r requirements.txt
 python main.py                                   # IDE  (python main.py --classic for the old viewer)
 python -m tulpa_bridge doctor                    # toolchain / MuJoCo check

@@ -43,7 +43,8 @@ published unsigned.
    3. Add the federated credential: *Certificates & secrets ▸ Federated credentials ▸ Add ▸
       GitHub Actions deploying Azure resources*. Use these values:
       - Organization `LoQiseaking69`
-      - Repository `HermiSim-DynamicsViewer`
+      - Repository `.RAV_IDE` (formerly `HermiSim-DynamicsViewer`: a credential made before the
+        rename matches the old name, so edit it to `.RAV_IDE` or OIDC login fails)
       - Entity **Tag**, pattern `v*` (tag builds)
    4. Add a second federated credential with Entity **Branch** `main`. Manual workflow runs need it.
 6. **Role assignment:** on the Artifact Signing account, go to *Access control (IAM) ▸ Add role
@@ -79,7 +80,7 @@ Alternatively, go to *Actions ▸ windows-installer ▸ Run workflow*, set the v
 4. creates the `v<version>` tag and the **.RAV IDE <version>** release, with the installer and its
    SHA-256 attached
 
-The install page is <https://github.com/LoQiseaking69/HermiSim-DynamicsViewer/releases/latest>.
+The install page is <https://github.com/LoQiseaking69/.RAV_IDE/releases/latest>.
 
 ## Signing locally
 

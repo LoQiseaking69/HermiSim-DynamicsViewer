@@ -16,7 +16,7 @@
 #define AppName      ".RAV IDE"
 #define AppDirName   "RAV IDE"
 #define AppPublisher "HermiTech LLC"
-#define AppURL       "https://github.com/LoQiseaking69/HermiSim-DynamicsViewer"
+#define AppURL       "https://github.com/LoQiseaking69/.RAV_IDE"
 #define AppExe       "RAVIDE.exe"
 #define Bundle       "..\..\dist\RAVIDE"
 #define ToolBin      "{app}\_internal\toolchain\bin"

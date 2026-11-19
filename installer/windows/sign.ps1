@@ -68,7 +68,7 @@ foreach ($f in $Files) {
   if (-not (Test-Path $f)) { throw "sign.ps1: no such file: $f" }
   for ($attempt = 1; $attempt -le 3; $attempt++) {
     & $signtool.FullName sign /v /fd SHA256 /tr "http://timestamp.acs.microsoft.com" /td SHA256 `
-      /d ".RAV IDE" /du "https://github.com/LoQiseaking69/HermiSim-DynamicsViewer" `
+      /d ".RAV IDE" /du "https://github.com/LoQiseaking69/.RAV_IDE" `
       /dlib $dlib.FullName /dmdf $metadata $f
     if ($LASTEXITCODE -eq 0) { break }
     if ($attempt -eq 3) { throw "sign.ps1: signing failed for $f" }
