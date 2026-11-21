@@ -103,8 +103,8 @@ reputation builds up per certificate identity as people download and run the ins
 
 - **SignPath Foundation:** free for open-source projects. The certificate is issued to SignPath
   Foundation, so it is shown as the publisher. It needs an OSI license and public source for
-  everything that gets signed. .RAV IDE bundles `tulpa.exe` built from the **private** TulpaLang
-  repo, so the project only qualifies if TulpaLang is made public.
+  everything that gets signed. .RAV IDE bundles `tulpa.exe` built from the **private** Tulpa
+  repo, so the project only qualifies if Tulpa is made public.
 - **Commercial OV certificate with cloud key storage**, such as SSL.com eSigner, DigiCert KeyLocker
   or Sectigo. It costs roughly $200–400 a year and works from any country. To use one, replace the
   `signtool` call in `sign.ps1` with the vendor's CLI.

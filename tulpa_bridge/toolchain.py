@@ -1,4 +1,4 @@
-"""Locate and invoke the TulpaLang toolchain (``tulpa`` binary + ``std/`` library)."""
+"""Locate and invoke the Tulpa toolchain (``tulpa`` binary + ``std/`` library)."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def candidates(configured: Optional[str] = None) -> list[Path]:
     found = shutil.which("tulpa")
     if found:
         out.append(Path(found))
-    for sib in ("TulpaLang", "tulpalang", "tulpa"):
+    for sib in ("Tulpa", "tulpa", "TulpaLang", "tulpalang"):  # TulpaLang: name before the repo rename
         out.append(ROOT.parent / sib / "target" / "release" / EXE)
     out.append(Path.home() / ".local" / "bin" / EXE)
     out.append(Path.home() / ".cargo" / "bin" / EXE)

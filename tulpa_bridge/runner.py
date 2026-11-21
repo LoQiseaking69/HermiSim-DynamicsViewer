@@ -171,7 +171,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
         except (AttributeError, ValueError):
             pass
-    ap = argparse.ArgumentParser(prog="ravide", description=".RAV IDE × TulpaLang runner")
+    ap = argparse.ArgumentParser(prog="ravide", description=".RAV IDE × Tulpa runner")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="run a Tulpa program in lock-step with a MuJoCo model")
     r.add_argument("script")

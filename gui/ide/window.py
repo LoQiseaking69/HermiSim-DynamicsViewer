@@ -1,4 +1,4 @@
-""".RAV IDE main window — TulpaLang editor + MuJoCo simulator in one workspace."""
+""".RAV IDE main window — Tulpa editor + MuJoCo simulator in one workspace."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "assets"
 from gui.ide import userdata  # noqa: E402
-NEW_FILE = '''# New TulpaLang program
+NEW_FILE = '''# New Tulpa program
 #   Run ▸ Run (F5)  ·  Run ▸ Run in Simulator (Shift+F5) connects cosim::connect() to the model
 
 fn main() {
@@ -76,7 +76,7 @@ class WelcomePage(QScrollArea):
         txt = QVBoxLayout()
         t = QLabel(".RAV IDE")
         t.setObjectName("heroTitle")
-        s = QLabel("Simulation suite & IDE for TulpaLang — write robot software with units, contracts and "
+        s = QLabel("Simulation suite & IDE for Tulpa — write robot software with units, contracts and "
                    "state machines, then fly it against MuJoCo physics, RTL models and real hardware.")
         s.setObjectName("heroSub")
         s.setWordWrap(True)
@@ -207,7 +207,7 @@ class IdeWindow(QMainWindow):
         from physics_engine.simulation import Simulation
         # settings key kept from the HermiSim era so existing preferences carry over
         self.settings = QSettings("HermiTech", "HermiSim")
-        self.setWindowTitle(".RAV IDE — TulpaLang")
+        self.setWindowTitle(".RAV IDE — Tulpa")
         icon = ASSETS / "logo" / "ravide.ico"
         if icon.exists():
             self.setWindowIcon(QIcon(str(icon)))
@@ -1092,11 +1092,11 @@ class IdeWindow(QMainWindow):
             if c.is_file():
                 self.open_file(str(c))
                 return
-        QDesktopServices.openUrl(QUrl("https://github.com/LoQiseaking69/TulpaLang/tree/main/docs"))
+        QDesktopServices.openUrl(QUrl("https://github.com/LoQiseaking69/Tulpa/tree/main/docs"))
 
     def about(self) -> None:
         QMessageBox.about(self, "About .RAV IDE",
-                          "<h3>.RAV IDE</h3><p>Simulation suite and development environment for TulpaLang "
+                          "<h3>.RAV IDE</h3><p>Simulation suite and development environment for Tulpa "
                           "(formerly HermiSim).</p>"
                           f"<p>{self.runs.tc.version if self.runs.tc else 'tulpa not found'} · MuJoCo physics · PySide6</p>"
                           "<p>© HermiTech LLC — Business Source License 1.1</p>")

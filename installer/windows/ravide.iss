@@ -75,17 +75,17 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
 en.WelcomeLabel1=Welcome to [name]
-en.WelcomeLabel2=This will install [name/ver] — the simulation suite and IDE for TulpaLang.%n%nWrite robot software with physical units, contracts and state machines, then fly it against MuJoCo physics, cycle-accurate RTL models and real hardware.%n%nIncludes the Tulpa toolchain (compiler, VM, LSP, std/ libraries) and the Morty bipedal humanoid sample.
+en.WelcomeLabel2=This will install [name/ver] — the simulation suite and IDE for Tulpa.%n%nWrite robot software with physical units, contracts and state machines, then fly it against MuJoCo physics, cycle-accurate RTL models and real hardware.%n%nIncludes the Tulpa toolchain (compiler, VM, LSP, std/ libraries) and the Morty bipedal humanoid sample.
 en.FinishedHeadingLabel=.RAV IDE is ready
 en.FinishedLabel=[name] has been installed. Your editable projects live in Documents\RAV IDE (or your existing Documents\HermiSim folder).
 
 [CustomMessages]
 en.CompCore=.RAV IDE and MuJoCo simulator
 en.CompTulpa=Tulpa toolchain (tulpa compiler, VM, language server, std/ libraries)
-en.CompVSCode=TulpaLang extension for Visual Studio Code (if VS Code is installed)
+en.CompVSCode=Tulpa extension for Visual Studio Code (if VS Code is installed)
 en.TaskDesktop=Create a &desktop shortcut
 en.TaskPath=Add the &tulpa command to PATH
-en.TaskAssoc=Open &.rav / .tlp TulpaLang files with .RAV IDE
+en.TaskAssoc=Open &.rav / .tlp Tulpa files with .RAV IDE
 en.GroupIntegration=System integration:
 en.LaunchMorty=Open the Morty sample project
 en.Uninstalling=Removing tulpa from PATH...
@@ -109,7 +109,7 @@ Source: "{#Bundle}\*"; DestDir: "{app}"; Components: core; Flags: ignoreversion 
 Source: "assets\ravide.ico"; DestDir: "{app}"; Components: core; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppName}";               Filename: "{app}\{#AppExe}"; IconFilename: "{app}\ravide.ico"; Comment: "Simulation suite & IDE for TulpaLang"
+Name: "{autoprograms}\{#AppName}";               Filename: "{app}\{#AppExe}"; IconFilename: "{app}\ravide.ico"; Comment: "Simulation suite & IDE for Tulpa"
 Name: "{autoprograms}\{#AppName} (classic viewer)"; Filename: "{app}\{#AppExe}"; Parameters: "--classic"; IconFilename: "{app}\ravide.ico"
 Name: "{autodesktop}\{#AppName}";                Filename: "{app}\{#AppExe}"; IconFilename: "{app}\ravide.ico"; Tasks: desktopicon
 
@@ -117,7 +117,7 @@ Name: "{autodesktop}\{#AppName}";                Filename: "{app}\{#AppExe}"; Ic
 ; .rav / .tlp → .RAV IDE (per-user or machine, following the install mode)
 Root: HKA; Subkey: "Software\Classes\.rav";  ValueType: string; ValueName: ""; ValueData: "RAVIDE.TulpaSource"; Flags: uninsdeletevalue; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\.tlp";  ValueType: string; ValueName: ""; ValueData: "RAVIDE.TulpaSource"; Flags: uninsdeletevalue; Tasks: assoc
-Root: HKA; Subkey: "Software\Classes\RAVIDE.TulpaSource"; ValueType: string; ValueName: ""; ValueData: "TulpaLang source"; Flags: uninsdeletekey; Tasks: assoc
+Root: HKA; Subkey: "Software\Classes\RAVIDE.TulpaSource"; ValueType: string; ValueName: ""; ValueData: "Tulpa source"; Flags: uninsdeletekey; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\RAVIDE.TulpaSource\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\ravide.ico,0"; Tasks: assoc
 Root: HKA; Subkey: "Software\Classes\RAVIDE.TulpaSource\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: assoc
 ; remove HermiSim-era registrations

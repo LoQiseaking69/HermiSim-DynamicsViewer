@@ -1,4 +1,4 @@
-"""TulpaLang syntax highlighting (mirrors editors/vscode/syntaxes/tulpa.tmLanguage.json)."""
+"""Tulpa syntax highlighting (mirrors editors/vscode/syntaxes/tulpa.tmLanguage.json)."""
 
 from __future__ import annotations
 

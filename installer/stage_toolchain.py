@@ -1,6 +1,6 @@
-"""Stage a built TulpaLang toolchain into build/toolchain for bundling.
+"""Stage a built Tulpa toolchain into build/toolchain for bundling.
 
-    python installer/stage_toolchain.py ../TulpaLang            # uses target/release
+    python installer/stage_toolchain.py ../Tulpa            # uses target/release
 """
 import os
 import shutil
@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-src = Path(sys.argv[1] if len(sys.argv) > 1 else ROOT.parent / "TulpaLang").resolve()
+src = Path(sys.argv[1] if len(sys.argv) > 1 else ROOT.parent / "Tulpa").resolve()
 exe = "tulpa.exe" if os.name == "nt" else "tulpa"
 binary = src / "target" / "release" / exe
 if not binary.is_file():

@@ -13,20 +13,20 @@ jobs:
       MUJOCO_GL: egl
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout TulpaLang
+      - name: Checkout Tulpa
         uses: actions/checkout@v4
         with:
-          repository: LoQiseaking69/TulpaLang
-          path: TulpaLang
+          repository: LoQiseaking69/Tulpa
+          path: Tulpa
           token: ${{ secrets.TULPA_REPO_TOKEN || github.token }}
         continue-on-error: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: TulpaLang
+          workspaces: Tulpa
       - name: Build tulpa
-        if: hashFiles('TulpaLang/Cargo.toml') != ''
-        run: cd TulpaLang && cargo build --release && echo "TULPA_BIN=$PWD/target/release/tulpa" >> $GITHUB_ENV
+        if: hashFiles('Tulpa/Cargo.toml') != ''
+        run: cd Tulpa && cargo build --release && echo "TULPA_BIN=$PWD/target/release/tulpa" >> $GITHUB_ENV
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

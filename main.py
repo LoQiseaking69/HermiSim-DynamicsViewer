@@ -1,4 +1,4 @@
-""".RAV IDE (formerly HermiSim) — simulation suite and IDE for TulpaLang.
+""".RAV IDE (formerly HermiSim) — simulation suite and IDE for Tulpa.
 
     python main.py                      # IDE (default)
     python main.py workspace/morty      # open a project

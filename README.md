@@ -1,12 +1,12 @@
 ![.RAV IDE](assets/logo/ravide-banner.jpg)
 
-# .RAV IDE: simulation suite & IDE for TulpaLang
+# .RAV IDE: simulation suite & IDE for Tulpa
 
 > Formerly **HermiSim**. Existing HermiSim installs, projects (`hermisim.json`) and the
 > `Documents\HermiSim` folder keep working; the installer upgrades HermiSim in place.
 
 .RAV IDE is an engineering workbench for writing robot software in
-[TulpaLang](https://github.com/LoQiseaking69/TulpaLang) and testing it, all in one window:
+[Tulpa](https://github.com/LoQiseaking69/Tulpa) and testing it, all in one window:
 - MuJoCo physics, driven in lock-step from Tulpa programs
 - cycle-accurate RTL models, shown in a waveform viewer
 - boards described as code
@@ -93,8 +93,8 @@ whether it is code-signed; see [code signing](installer/windows/SIGNING.md).
 
 ```bash
 git clone https://github.com/LoQiseaking69/.RAV_IDE.git rav-ide
-git clone https://github.com/LoQiseaking69/TulpaLang.git
-(cd TulpaLang && cargo build --release)          # .RAV IDE finds ../TulpaLang/target/release/tulpa
+git clone https://github.com/LoQiseaking69/Tulpa.git
+(cd Tulpa && cargo build --release)          # .RAV IDE finds ../Tulpa/target/release/tulpa
 cd rav-ide
 pip install -r requirements.txt
 python main.py                                   # IDE  (python main.py --classic for the old viewer)
@@ -106,7 +106,7 @@ You can point .RAV IDE at a specific toolchain with `TULPA_BIN`, or under *Setti
 ### Building the Windows installer
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\TulpaLang -Version 2.4.0
+powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1 -TulpaSrc ..\Tulpa -Version 2.4.0
 ```
 
 The script:
@@ -118,7 +118,7 @@ The script:
 
 The `windows-installer` GitHub workflow does the same on every `v*` tag, or from *Run workflow*
 with *publish* ticked. It signs the installer with Microsoft Artifact Signing once that is set
-up ([SIGNING.md](installer/windows/SIGNING.md)), then publishes it to the Releases page. TulpaLang is private, so the workflow needs a `TULPA_REPO_TOKEN`
+up ([SIGNING.md](installer/windows/SIGNING.md)), then publishes it to the Releases page. Tulpa is private, so the workflow needs a `TULPA_REPO_TOKEN`
 secret with read access to it.
 
 ## Layout

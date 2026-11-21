@@ -3,9 +3,9 @@
   Builds the .RAV IDE Windows installer end to end.
 
 .EXAMPLE
-  # from the repo root, with TulpaLang checked out next to it
+  # from the repo root, with Tulpa checked out next to it
   powershell -ExecutionPolicy Bypass -File installer\windows\build.ps1
-  powershell -File installer\windows\build.ps1 -TulpaSrc C:\src\TulpaLang -Version 2.4.0 -Sign
+  powershell -File installer\windows\build.ps1 -TulpaSrc C:\src\Tulpa -Version 2.4.0 -Sign
 
 .NOTES
   Needs: Rust (cargo), Python 3.10+, Inno Setup 6 (iscc on PATH or default install dir).
@@ -16,7 +16,7 @@
   ARTIFACT_SIGNING_* variables and Azure login). -Sign is implied when RAVIDE_SIGN=1 (or the older HERMISIM_SIGN=1).
 #>
 param(
-  [string]$TulpaSrc = "..\TulpaLang",
+  [string]$TulpaSrc = "..\Tulpa",
   [string]$Version  = "2.4.0",
   [switch]$Sign,
   [switch]$Brand,

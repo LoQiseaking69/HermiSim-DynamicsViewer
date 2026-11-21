@@ -1,1 +1,1 @@
-""".RAV IDE (formerly HermiSim) — a TulpaLang development environment with an integrated physics simulator."""
+""".RAV IDE (formerly HermiSim) — a Tulpa development environment with an integrated physics simulator."""

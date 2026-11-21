@@ -1,4 +1,4 @@
-"""Code editor for TulpaLang: gutter, diagnostics, completion, hover, go-to-definition."""
+"""Code editor for Tulpa: gutter, diagnostics, completion, hover, go-to-definition."""
 
 from __future__ import annotations
 

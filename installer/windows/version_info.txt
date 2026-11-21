@@ -5,7 +5,7 @@ VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040904B0', [
       StringStruct('CompanyName', 'HermiTech LLC'),
-      StringStruct('FileDescription', '.RAV IDE — simulation suite & IDE for TulpaLang'),
+      StringStruct('FileDescription', '.RAV IDE — simulation suite & IDE for Tulpa'),
       StringStruct('FileVersion', '2.0.0'),
       StringStruct('InternalName', 'RAVIDE'),
       StringStruct('LegalCopyright', 'Copyright (c) HermiTech LLC. Business Source License 1.1.'),
